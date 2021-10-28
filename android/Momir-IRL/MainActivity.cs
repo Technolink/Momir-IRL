@@ -14,6 +14,7 @@ using ScryfallApi.Client.Models;
 using Android.Graphics;
 using Android.Util;
 using System.Text.Json;
+using System.Linq;
 
 namespace Momir_IRL
 {
@@ -22,6 +23,7 @@ namespace Momir_IRL
     {
         private const string ScryfallUrl = "https://api.scryfall.com/cards/random?q=type:creature+cmc:{0}";
         private ImageView imageView;
+        private Spinner cmcDropdown;
 
         protected override void OnCreate(Bundle savedInstanceState)
         {
@@ -32,7 +34,9 @@ namespace Momir_IRL
             var toolbar = FindViewById<Toolbar>(Resource.Id.toolbar);
             SetSupportActionBar(toolbar);
 
-            imageView = FindViewById<ImageView>(Resource.Id.image);
+            imageView = FindViewById<ImageView>(Resource.Id.card);
+            cmcDropdown = FindViewById<Spinner>(Resource.Id.cmc);
+            cmcDropdown.Adapter = new ArrayAdapter(this, Android.Resource.Layout.SimpleSpinnerDropDownItem, Enumerable.Range(1, 16).ToArray());
 
             var fab = FindViewById<FloatingActionButton>(Resource.Id.fab);
             fab.Click += FabOnClick;
@@ -59,7 +63,7 @@ namespace Momir_IRL
         {
             try
             {
-                var bitmap = await GetImage();
+                var bitmap = await GetImage((int)cmcDropdown.SelectedItem);
                 imageView.SetImageBitmap(bitmap);
             }
             catch (Exception e)
@@ -86,9 +90,8 @@ namespace Momir_IRL
 
         private async Task<Bitmap> GetImage(int cmc = 1)
         {
-            var imageStream = await GetImageStream();
+            var imageStream = await GetImageStream(cmc);
             var bitmap = await BitmapFactory.DecodeStreamAsync(imageStream);
-            throw new Exception("test");
             return bitmap;
         }
 
