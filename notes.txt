@@ -1,0 +1,11 @@
+https://api.scryfall.com/cards/<set>/<number>/en
+
+
+https://api.scryfall.com/cards/mh1/241/en
+border_crop
+https://img.scryfall.com/cards/border_crop/front/e/a/ea23111b-ccc1-4d5c-a9d2-9db14c728820.jpg?1562202409
+
+Crop to 384x544 (*0.80)
+magick convert .\scarabgod.jpg -resize 80% -monochrome scarabgod.bmp
+magick convert .\scarabgod.jpg -resize 80% -remap pattern:gray50 scarabgod.bmp
+magick convert  .\scarabgod.jpg -resize 80% -colorspace gray -auto-level -threshold 20% scarabgod.bmp
