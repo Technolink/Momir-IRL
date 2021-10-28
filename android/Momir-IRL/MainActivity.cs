@@ -3,26 +3,38 @@ using Android.App;
 using Android.OS;
 using Android.Runtime;
 using Android.Views;
-using AndroidX.AppCompat.Widget;
 using AndroidX.AppCompat.App;
 using Google.Android.Material.FloatingActionButton;
-using Google.Android.Material.Snackbar;
+using System.Net.Http;
+using System.Threading.Tasks;
+using System.IO;
+using Android.Widget;
+using Toolbar = AndroidX.AppCompat.Widget.Toolbar;
+using ScryfallApi.Client.Models;
+using Android.Graphics;
+using Android.Util;
+using System.Text.Json;
 
 namespace Momir_IRL
 {
     [Activity(Label = "@string/app_name", Theme = "@style/AppTheme.NoActionBar", MainLauncher = true)]
     public class MainActivity : AppCompatActivity
     {
+        private const string ScryfallUrl = "https://api.scryfall.com/cards/random?q=type:creature+cmc:{0}";
+        private ImageView imageView;
+
         protected override void OnCreate(Bundle savedInstanceState)
         {
             base.OnCreate(savedInstanceState);
             Xamarin.Essentials.Platform.Init(this, savedInstanceState);
             SetContentView(Resource.Layout.activity_main);
 
-            Toolbar toolbar = FindViewById<Toolbar>(Resource.Id.toolbar);
+            var toolbar = FindViewById<Toolbar>(Resource.Id.toolbar);
             SetSupportActionBar(toolbar);
 
-            FloatingActionButton fab = FindViewById<FloatingActionButton>(Resource.Id.fab);
+            imageView = FindViewById<ImageView>(Resource.Id.image);
+
+            var fab = FindViewById<FloatingActionButton>(Resource.Id.fab);
             fab.Click += FabOnClick;
         }
 
@@ -34,7 +46,7 @@ namespace Momir_IRL
 
         public override bool OnOptionsItemSelected(IMenuItem item)
         {
-            int id = item.ItemId;
+            var id = item.ItemId;
             if (id == Resource.Id.action_settings)
             {
                 return true;
@@ -43,11 +55,41 @@ namespace Momir_IRL
             return base.OnOptionsItemSelected(item);
         }
 
-        private void FabOnClick(object sender, EventArgs eventArgs)
+        private async void FabOnClick(object sender, EventArgs eventArgs)
         {
-            View view = (View) sender;
-            Snackbar.Make(view, "Replace with your own action", Snackbar.LengthLong)
-                .SetAction("Action", (View.IOnClickListener)null).Show();
+            try
+            {
+                var bitmap = await GetImage();
+                imageView.SetImageBitmap(bitmap);
+            }
+            catch (Exception e)
+            {
+                Log.Error("FetchImage", e.ToString());
+            }
+        }
+
+        private async Task<Stream> GetImageStream(int cmc = 1)
+        {
+            using (var httpClient = new HttpClient())
+            {
+                var response = await httpClient.GetAsync(string.Format(ScryfallUrl, cmc));
+                response.EnsureSuccessStatusCode();
+                var responseString = await response.Content.ReadAsStringAsync();
+                var card = JsonSerializer.Deserialize<Card>(responseString);
+                var imageUrl = card.ImageUris["border_crop"];
+
+                var imageResponse = await httpClient.GetAsync(imageUrl);
+                imageResponse.EnsureSuccessStatusCode();
+                return await imageResponse.Content.ReadAsStreamAsync();
+            }
+        }
+
+        private async Task<Bitmap> GetImage(int cmc = 1)
+        {
+            var imageStream = await GetImageStream();
+            var bitmap = await BitmapFactory.DecodeStreamAsync(imageStream);
+            throw new Exception("test");
+            return bitmap;
         }
 
         public override void OnRequestPermissionsResult(int requestCode, string[] permissions, [GeneratedEnum] Android.Content.PM.Permission[] grantResults)
