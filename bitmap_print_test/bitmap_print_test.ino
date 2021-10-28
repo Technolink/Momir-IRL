@@ -13,31 +13,28 @@
 
 #include "Adafruit_Thermal.h"
 //#include "adalogo.h"
-//#include "monochrome.h"
-#include "test.h"
+#include "monochrome.h"
+//#include "scarabgod.h"
 
 // Here's the new syntax when using SoftwareSerial (e.g. Arduino Uno) ----
 // If using hardware serial instead, comment out or remove these lines:
 
 #include "SoftwareSerial.h"
-#define TX_PIN 6 // Arduino transmit  YELLOW WIRE  labeled RX on printer
-#define RX_PIN 5 // Arduino receive   GREEN WIRE   labeled TX on printer
+#define TX_PIN  6  // Arduino transmit  YELLOW WIRE   labeled RX  on printer
+#define RX_PIN  5  // Arduino receive   GREEN  WIRE   labeled TX  on printer
+// https://learn.adafruit.com/mini-thermal-receipt-printer/hacking
+#define DTR_PIN 4 // Arduino DTR       ORANGE WIRE   labeled DTR on printer
 
 SoftwareSerial mySerial(RX_PIN, TX_PIN); // Declare SoftwareSerial obj first
-Adafruit_Thermal printer(&mySerial);     // Pass addr to printer constructor
-// Then see setup() function regarding serial & printer begin() calls.
-
-// Here's the syntax for hardware serial (e.g. Arduino Due) --------------
-// Un-comment the following line if using hardware serial:
-
-//Adafruit_Thermal printer(&Serial1);      // Or Serial2, Serial3, etc.
-
-// -----------------------------------------------------------------------
+Adafruit_Thermal printer(&mySerial, DTR_PIN);     // Pass addr to printer constructor
 
 void setup() {
   mySerial.begin(19200);  // Initialize SoftwareSerial
   printer.begin();        // Init printer (same regardless of serial type)
 
+  printer.setHeatConfig(4, 255, 255);
+  //printer.setTimes(30000, 2100);
+  
   printer.printBitmap(monochrome_width, monochrome_height, monochrome_data);
   printer.feed(4);
  
