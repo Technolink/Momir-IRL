@@ -40,6 +40,8 @@ namespace Momir_IRL
 
             var fab = FindViewById<FloatingActionButton>(Resource.Id.fab);
             fab.Click += FabOnClick;
+
+            PopulateImage();
         }
 
         public override bool OnCreateOptionsMenu(IMenu menu)
@@ -61,10 +63,18 @@ namespace Momir_IRL
 
         private async void FabOnClick(object sender, EventArgs eventArgs)
         {
+            await PopulateImage();
+        }
+
+        private async Task PopulateImage()
+        {
             try
             {
-                var bitmap = await GetImage((int)cmcDropdown.SelectedItem);
-                imageView.SetImageBitmap(bitmap);
+                var bmp = await GetImage((int)cmcDropdown.SelectedItem);
+                imageView.SetImageBitmap(bmp);
+
+                var monoBmp = await ConvertToMonochrome(bmp);
+                imageView.SetImageBitmap(monoBmp);
             }
             catch (Exception e)
             {
@@ -72,8 +82,9 @@ namespace Momir_IRL
             }
         }
 
-        private async Task<Stream> GetImageStream(int cmc = 1)
+        private async Task<Bitmap> GetImage(int cmc = 1)
         {
+
             using (var httpClient = new HttpClient())
             {
                 var response = await httpClient.GetAsync(string.Format(ScryfallUrl, cmc));
@@ -82,17 +93,54 @@ namespace Momir_IRL
                 var card = JsonSerializer.Deserialize<Card>(responseString);
                 var imageUrl = card.ImageUris["border_crop"];
 
+                // test scarab god
+                imageUrl = new Uri("https://c1.scryfall.com/file/scryfall-cards/border_crop/front/d/7/d79ee141-0ea6-45d6-a682-96a37d703394.jpg?1599708320");
+
                 var imageResponse = await httpClient.GetAsync(imageUrl);
                 imageResponse.EnsureSuccessStatusCode();
-                return await imageResponse.Content.ReadAsStreamAsync();
+                using (var stream = await imageResponse.Content.ReadAsStreamAsync())
+                {
+                    return await BitmapFactory.DecodeStreamAsync(stream);
+                }
             }
         }
 
-        private async Task<Bitmap> GetImage(int cmc = 1)
+        private async Task<Bitmap> ConvertToMonochrome(Bitmap bmp)
         {
-            var imageStream = await GetImageStream(cmc);
-            var bitmap = await BitmapFactory.DecodeStreamAsync(imageStream);
-            return bitmap;
+            // Run on a background thread. TODO: Replace with ImageMagick + bindings
+            return await Task.Run(() =>
+            {
+                var bitmap = bmp.Copy(Bitmap.Config.Argb8888, true);
+                var canvas = new Canvas(bitmap);
+                var ma = new ColorMatrix();
+                ma.SetSaturation(0);
+                var paint = new Paint();
+                paint.SetColorFilter(new ColorMatrixColorFilter(ma));
+                canvas.DrawBitmap(bitmap, 0, 0, paint);
+
+                // Adapted from https://stackoverflow.com/questions/29078142/convert-bitmap-to-1bit-bitmap
+                var pixels = new int[bitmap.Width * bitmap.Height];
+                bitmap.GetPixels(pixels, 0, bitmap.Width, 0, 0, bitmap.Width, bitmap.Height);
+
+                for (var y = 0; y < bitmap.Height; y++)
+                {
+                    for (int x = 0; x < bitmap.Width; x++)
+                    {
+                        int pixel = bitmap.GetPixel(x, y);
+                        int lowestBit = pixel & 0xff;
+                        if (lowestBit < 64)
+                        {
+                            bitmap.SetPixel(x, y, Color.Black);
+                        }
+                        else
+                        {
+                            bitmap.SetPixel(x, y, Color.White);
+                        }
+                    }
+                }
+
+                return bitmap;
+            });
         }
 
         public override void OnRequestPermissionsResult(int requestCode, string[] permissions, [GeneratedEnum] Android.Content.PM.Permission[] grantResults)
