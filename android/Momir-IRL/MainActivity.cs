@@ -92,9 +92,7 @@ namespace Momir_IRL
                 var responseString = await response.Content.ReadAsStringAsync();
                 var card = JsonSerializer.Deserialize<Card>(responseString);
                 var imageUrl = card.ImageUris["border_crop"];
-
-                // test scarab god
-                imageUrl = new Uri("https://c1.scryfall.com/file/scryfall-cards/border_crop/front/d/7/d79ee141-0ea6-45d6-a682-96a37d703394.jpg?1599708320");
+                //imageUrl = new Uri("https://c1.scryfall.com/file/scryfall-cards/border_crop/front/d/7/d79ee141-0ea6-45d6-a682-96a37d703394.jpg?1599708320"); // test scarab god
 
                 var imageResponse = await httpClient.GetAsync(imageUrl);
                 imageResponse.EnsureSuccessStatusCode();
@@ -107,10 +105,12 @@ namespace Momir_IRL
 
         private async Task<Bitmap> ConvertToMonochrome(Bitmap bmp)
         {
+            const int textboxHeight = 307;
             // Run on a background thread. TODO: Replace with ImageMagick + bindings
             return await Task.Run(() =>
             {
-                var bitmap = bmp.Copy(Bitmap.Config.Argb8888, true);
+                //var bitmap = bmp.Copy(Bitmap.Config.Argb8888, true);
+                var bitmap = Bitmap.CreateScaledBitmap(bmp, 384, 544, false);
                 var canvas = new Canvas(bitmap);
                 var ma = new ColorMatrix();
                 ma.SetSaturation(0);
@@ -128,7 +128,7 @@ namespace Momir_IRL
                     {
                         int pixel = bitmap.GetPixel(x, y);
                         int lowestBit = pixel & 0xff;
-                        if (lowestBit < 64)
+                        if (y < textboxHeight && lowestBit < 64 || y >= textboxHeight && lowestBit < 128)
                         {
                             bitmap.SetPixel(x, y, Color.Black);
                         }
