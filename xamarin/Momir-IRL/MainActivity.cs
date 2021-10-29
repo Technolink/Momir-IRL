@@ -183,12 +183,12 @@ namespace Momir_IRL
             }
             */
 
-            for (var i = 0; i < bmp.Height / 4; i += 1) // debug just print a fourth of the picture
+            for (var i = 0; i < bmp.Height; i += 1) 
             {
                 socket.OutputStream.Write(byteArray, i++ * bmp.Width / 8, bmp.Width / 8);
                 socket.OutputStream.Write(byteArray, i++ * bmp.Width / 8, bmp.Width / 8);
                 socket.OutputStream.Write(byteArray, i++ * bmp.Width / 8, bmp.Width / 8);
-                socket.OutputStream.Write(byteArray, i++ * bmp.Width / 8, bmp.Width / 8);
+                socket.OutputStream.Write(byteArray, i * bmp.Width / 8, bmp.Width / 8);
 
                 while (!socket.InputStream.IsDataAvailable())
                 { } // wait for printer to print the row

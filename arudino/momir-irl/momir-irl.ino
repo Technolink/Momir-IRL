@@ -25,7 +25,7 @@ void setup() {
   PrinterSerial.begin(19200);
   Printer.begin();
 
-  Printer.setHeatConfig(4, 255, 255);
+  Printer.setHeatConfig(8, 255, 255);
   //Printer.setTimes(30000, 2100);
   
   //Printer.printBitmap(monochrome_width, monochrome_height, monochrome_data);
@@ -46,30 +46,20 @@ void loop() {
     rowBuffer[bufferIndex] = i;
     bufferIndex += 1;
 
-    if (bufferIndex == monochrome_width/8) {
+    if (bufferIndex == monochrome_width/8 * bufferMaxHeight) {
+      // print row
       bufferIndex = 0;
 
-      bufferHeight += 1;
-      Printer.printBitmap(monochrome_width, 1, rowBuffer, false);
+      bufferHeight += bufferMaxHeight;
+      Printer.printBitmap(monochrome_width, bufferMaxHeight, rowBuffer, false);
       BluetoothSerial.write(5);
-
-      if (bufferHeight == monochrome_height/4) { // debug
-        Printer.feed(2);
+      
+      Serial.println(bufferHeight);
+      
+      if (bufferHeight >= monochrome_height) {
+        Printer.feed(4);
         bufferHeight = 0;
       }
     }
   }
-
-  /*
-  if (flag == '1') {
-    digitalWrite(LED_PIN, HIGH);
-    Serial.println("LED on");
-    BluetoothSerial.println("LED on");
-  } else if (flag == '0') {
-    digitalWrite(LED_PIN, LOW);
-    Serial.println("LED off");
-    BluetoothSerial.println("LED off");
-  }
-  flag = 0;
-  */
 }
