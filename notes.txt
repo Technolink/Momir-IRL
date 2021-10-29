@@ -9,3 +9,8 @@ Crop to 384x544 (*0.80)
 magick convert .\scarabgod.jpg -resize 80% -monochrome scarabgod.bmp
 magick convert .\scarabgod.jpg -resize 80% -remap pattern:gray50 scarabgod.bmp
 magick convert  .\scarabgod.jpg -resize 80% -colorspace gray -auto-level -threshold 20% scarabgod.bmp
+
+To generate images run:
+```
+powershell/Convert-AllCreatures.ps1
+```
