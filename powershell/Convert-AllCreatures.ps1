@@ -16,22 +16,21 @@ foreach ($creature in $creatures) {
 	Write-Progress -Activity "Convert" -Status "$($creature.name) $($i/$creatures.Count*100)" -PercentComplete ($i/$creatures.Count*100)
 
 	if (-not $creature.image_uris) {
+		# double face card or otherwise doesn't have an image
 		continue
 	}
-	$name = $creature.name -replace " // ", "-" -replace "`"", ""
+	$name = ($creature.name -split " // ")[0]
+	$name = $name.Split([IO.Path]::GetInvalidFileNameChars()) -join ''
 	
 	$path = "$env:temp/momir/$($name).jpg"
 	$target = "xamarin/Momir-IRL/Assets/$([int]$creature.cmc)/$($name).bmp"
 	
-	if ($creature.layout -eq "token" -or $creature.layout -eq "augment" ) {
-		continue
-	}
-	
-	if (Test-Path $target) {
+	if ($creature.layout -eq "token" -or $creature.layout -eq "augment" -or (Test-Path $target)) {
 		continue
 	}
 	
 	if (-not (Test-Path $path)) {
+		# download image
 		Invoke-RestMethod $creature.image_uris.border_crop -OutFile $path
 	}
 	magick convert $path -resize 80% -monochrome $target
