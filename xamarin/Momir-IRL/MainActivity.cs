@@ -125,7 +125,8 @@ namespace Momir_IRL
                 var name = card.Name.Split(" // ").First();
                 name = string.Join("", name.Split(System.IO.Path.GetInvalidFileNameChars()));
 
-                var monoStream = Assets.Open($"{(int)card.ConvertedManaCost}/{name}.bmp");
+                //var monoStream = Assets.Open($"{(int)card.ConvertedManaCost}/{name}.bmp");
+                var monoStream = Assets.Open($"2/Aether Chaser.bmp");
 
                 var imageResponse = await httpClient.GetAsync(imageUrl);
                 imageResponse.EnsureSuccessStatusCode();
@@ -143,12 +144,11 @@ namespace Momir_IRL
         {
             var pixels = new int[bmp.Width * bmp.Height];
             bmp.GetPixels(pixels, 0, bmp.Width, 0, 0, bmp.Width, bmp.Height);
-            var row = pixels[0..bmp.Width];
 
             //white = -16711936
             //black = -65536
             //(p >> 16) & 0xff
-            var boolPixels = pixels.Select(p => p == -16711936).ToArray();
+            var boolPixels = pixels.Select(p => p == -65536).ToArray();
             var byteArray = new byte[pixels.Length / 8];
             var j = -1;
             for (var i = 0; i < boolPixels.Length; i += 1)
@@ -157,18 +157,44 @@ namespace Momir_IRL
                     j += 1;
                 if (boolPixels[i])
                     byteArray[j] |= (byte)(1 << 7-(i % 8));
+                    //byteArray[j] |= (byte)(1 << (i % 8));
             }
 
-            for (var i = 0; i < bmp.Height/8; i += 1) // debug just print an eigth of the picture
+            /*
+            for (var row = bmp.Height-1; row >= 0; row -= 1)
             {
-                socket.OutputStream.Write(byteArray, i*bmp.Width / 8, bmp.Width / 8);
+                string s = "";
+                for (var col = 0; col < bmp.Width; col += 1)
+                {
+                    s += boolPixels[row * bmp.Width + col] ? "*" : "_";
+                }
+                Log.Info("BoolTest", s);
             }
-            return;
-
-            while (socket.InputStream.IsDataAvailable())
+            */
+            
+            /*
+            for (var row = 0; row < bmp.Height / 4; row += 1)
             {
+                string s = "";
+                for (var col = 0; col < bmp.Width / 8; col += 1)
+                {
+                    socket.OutputStream.WriteByte(255);// byteArray[row * bmp.Width/8 + col]);
+                }
+            }
+            */
+
+            for (var i = 0; i < bmp.Height / 4; i += 1) // debug just print a fourth of the picture
+            {
+                socket.OutputStream.Write(byteArray, i++ * bmp.Width / 8, bmp.Width / 8);
+                socket.OutputStream.Write(byteArray, i++ * bmp.Width / 8, bmp.Width / 8);
+                socket.OutputStream.Write(byteArray, i++ * bmp.Width / 8, bmp.Width / 8);
+                socket.OutputStream.Write(byteArray, i++ * bmp.Width / 8, bmp.Width / 8);
+
+                while (!socket.InputStream.IsDataAvailable())
+                { } // wait for printer to print the row
                 var b = socket.InputStream.ReadByte();
             }
+            return;
         }
 
         private async Task<Bitmap> ConvertToMonochrome(Bitmap bmp)

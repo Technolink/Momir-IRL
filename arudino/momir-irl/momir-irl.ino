@@ -16,7 +16,8 @@ SoftwareSerial BluetoothSerial(BLUETHT_RX_PIN, BLUETHT_TX_PIN); // Declare Softw
 SoftwareSerial PrinterSerial(PRINTER_RX_PIN, PRINTER_TX_PIN); // Declare SoftwareSerial obj first
 Adafruit_Thermal Printer(&PrinterSerial, PRINTER_DTR_PIN);     // Pass addr to printer constructor
 
-uint8_t rowBuffer[monochrome_width];
+byte bufferMaxHeight = 4;
+byte rowBuffer[1536];
 int bufferIndex = 0;
 int bufferHeight = 0;
 
@@ -39,7 +40,7 @@ void setup() {
 }
 
 void loop() {
-  uint8_t i;
+  byte i;
   while (BluetoothSerial.available()) {
     i = BluetoothSerial.read();
     rowBuffer[bufferIndex] = i;
@@ -47,13 +48,12 @@ void loop() {
 
     if (bufferIndex == monochrome_width/8) {
       bufferIndex = 0;
-      for (int i=0; i<monochrome_width; i++)
-        rowBuffer[i] = 0;
 
       bufferHeight += 1;
-      Printer.printBitmap(monochrome_width, 1, rowBuffer);
-      
-      if (bufferHeight == monochrome_height/8) { // debug
+      Printer.printBitmap(monochrome_width, 1, rowBuffer, false);
+      BluetoothSerial.write(5);
+
+      if (bufferHeight == monochrome_height/4) { // debug
         Printer.feed(2);
         bufferHeight = 0;
       }
