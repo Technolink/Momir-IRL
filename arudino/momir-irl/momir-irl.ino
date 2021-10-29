@@ -52,12 +52,10 @@ void loop() {
 
       bufferHeight += bufferMaxHeight;
       Printer.printBitmap(monochrome_width, bufferMaxHeight, rowBuffer, false);
-      BluetoothSerial.write(5);
-      
-      Serial.println(bufferHeight);
+      BluetoothSerial.write(5); // let the program know we're ready
       
       if (bufferHeight >= monochrome_height) {
-        Printer.feed(4);
+        Printer.feed(3);
         bufferHeight = 0;
       }
     }

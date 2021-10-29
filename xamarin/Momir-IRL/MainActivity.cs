@@ -96,7 +96,10 @@ namespace Momir_IRL
                     var (bmp, monoBmp) = await GetImages((int)cmcDropdown.SelectedItem);
                     imageView.SetImageBitmap(bmp);
                     //imageView.SetImageBitmap(monoBmp);
-                    await SendToPrinter(monoBmp);
+                    Task.Run(async () =>
+                    {
+                        await SendToPrinter(monoBmp);
+                    });
                     success = true;
                 }
                 catch (Exception e)
@@ -120,13 +123,11 @@ namespace Momir_IRL
                 var responseString = await response.Content.ReadAsStringAsync();
                 var card = JsonSerializer.Deserialize<Card>(responseString);
                 var imageUrl = card.ImageUris["border_crop"];
-                //imageUrl = new Uri("https://c1.scryfall.com/file/scryfall-cards/border_crop/front/d/7/d79ee141-0ea6-45d6-a682-96a37d703394.jpg?1599708320"); // test scarab god
 
                 var name = card.Name.Split(" // ").First();
                 name = string.Join("", name.Split(System.IO.Path.GetInvalidFileNameChars()));
 
-                //var monoStream = Assets.Open($"{(int)card.ConvertedManaCost}/{name}.bmp");
-                var monoStream = Assets.Open($"2/Aether Chaser.bmp");
+                var monoStream = Assets.Open($"{(int)card.ConvertedManaCost}/{name}.bmp");
 
                 var imageResponse = await httpClient.GetAsync(imageUrl);
                 imageResponse.EnsureSuccessStatusCode();
@@ -157,31 +158,7 @@ namespace Momir_IRL
                     j += 1;
                 if (boolPixels[i])
                     byteArray[j] |= (byte)(1 << 7-(i % 8));
-                    //byteArray[j] |= (byte)(1 << (i % 8));
             }
-
-            /*
-            for (var row = bmp.Height-1; row >= 0; row -= 1)
-            {
-                string s = "";
-                for (var col = 0; col < bmp.Width; col += 1)
-                {
-                    s += boolPixels[row * bmp.Width + col] ? "*" : "_";
-                }
-                Log.Info("BoolTest", s);
-            }
-            */
-            
-            /*
-            for (var row = 0; row < bmp.Height / 4; row += 1)
-            {
-                string s = "";
-                for (var col = 0; col < bmp.Width / 8; col += 1)
-                {
-                    socket.OutputStream.WriteByte(255);// byteArray[row * bmp.Width/8 + col]);
-                }
-            }
-            */
 
             for (var i = 0; i < bmp.Height; i += 1) 
             {
