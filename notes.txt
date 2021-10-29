@@ -10,6 +10,37 @@ magick convert .\scarabgod.jpg -resize 80% -monochrome scarabgod.bmp
 magick convert .\scarabgod.jpg -resize 80% -remap pattern:gray50 scarabgod.bmp
 magick convert  .\scarabgod.jpg -resize 80% -colorspace gray -auto-level -threshold 20% scarabgod.bmp
 
+Image exceptions:
+1/GhazbÃ¡n Ogre
+2/DandÃ¢n.bmp
+2/DandÃ¢n.bmp
+2/JÃ¶tun Grunt.bmp
+2/JÃ¶tun Grunt.bmp
+3/Chicken Ã  la King.bmp
+3/Chicken Ã  la King.bmp
+3/El-HajjÃ¢j.bmp
+3/El-HajjÃ¢j.bmp
+3/JunÃºn Efreet.bmp
+3/JunÃºn Efreet.bmp
+3/JÃ¶tun Owl Keeper.bmp
+3/JÃ¶tun Owl Keeper.bmp
+3/KhabÃ¡l Ghoul.bmp
+3/KhabÃ¡l Ghoul.bmp
+3/Legions of Lim-DÃ»l.bmp
+3/Legions of Lim-DÃ»l.bmp
+3/Lim-DÃ»l's Cohort.bmp
+3/Lim-DÃ»l's Cohort.bmp
+3/Lim-DÃ»l's High Guard.bmp
+3/Lim-DÃ»l's High Guard.bmp
+4/Ifh-BÃ­ff Efreet.bmp
+4/JuzÃ¡m Djinn.bmp
+4/JuzÃ¡m Djinn.bmp
+4/Lim-DÃ»l's Paladin.bmp
+4/Lim-DÃ»l's Paladin.bmp
+4/MÃ¡rton Stromgald.bmp
+4/MÃ¡rton Stromgald.bmp
+7/Lim-DÃ»l the Necromancer.bmp
+7/Lim-DÃ»l the Necromancer.bmp
 To generate images run:
 ```
 powershell/Convert-AllCreatures.ps1

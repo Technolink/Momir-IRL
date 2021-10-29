@@ -1,5 +1,6 @@
 ﻿using System;
 using Android.App;
+using Android.Bluetooth;
 using Android.OS;
 using Android.Runtime;
 using Android.Views;
@@ -15,6 +16,7 @@ using Android.Graphics;
 using Android.Util;
 using System.Text.Json;
 using System.Linq;
+using System.Collections;
 
 namespace Momir_IRL
 {
@@ -24,23 +26,41 @@ namespace Momir_IRL
         private const string ScryfallUrl = "https://api.scryfall.com/cards/random?q=type:creature+cmc:{0}";
         private ImageView imageView;
         private Spinner cmcDropdown;
+        private BluetoothSocket socket;
 
-        protected override void OnCreate(Bundle savedInstanceState)
+        protected async override void OnCreate(Bundle savedInstanceState)
         {
             base.OnCreate(savedInstanceState);
             Xamarin.Essentials.Platform.Init(this, savedInstanceState);
             SetContentView(Resource.Layout.activity_main);
 
+            Task btConnectTask = Task.CompletedTask;
+            try
+            {
+                var device = BluetoothAdapter.DefaultAdapter.BondedDevices.First(d => d.Name.Contains("HC-05"));
+                socket = device.CreateInsecureRfcommSocketToServiceRecord(Java.Util.UUID.FromString("00001101-0000-1000-8000-00805f9b34fb"));
+                btConnectTask = socket.ConnectAsync();
+            }
+            catch (Exception e)
+            {
+                Log.Error("Bluetooth Connect", e.ToString());
+                Toast.MakeText(this, "Could not connect to HC-05 Bluetooth. Connect before starting the app", ToastLength.Long);
+            }
+
             var toolbar = FindViewById<Toolbar>(Resource.Id.toolbar);
             SetSupportActionBar(toolbar);
 
+
+            var cmcs = Enumerable.Range(1, 16).Where(i => Assets.List(i.ToString()).Any());
+
             imageView = FindViewById<ImageView>(Resource.Id.card);
             cmcDropdown = FindViewById<Spinner>(Resource.Id.cmc);
-            cmcDropdown.Adapter = new ArrayAdapter(this, Android.Resource.Layout.SimpleSpinnerDropDownItem, Enumerable.Range(1, 16).ToArray());
+            cmcDropdown.Adapter = new ArrayAdapter(this, Android.Resource.Layout.SimpleSpinnerDropDownItem, cmcs.ToArray());
 
             var fab = FindViewById<FloatingActionButton>(Resource.Id.fab);
             fab.Click += FabOnClick;
 
+            await btConnectTask;
             PopulateImage();
         }
 
@@ -68,21 +88,29 @@ namespace Momir_IRL
 
         private async Task PopulateImage()
         {
-            try
+            var success = false;
+            for (var i = 0; !success && i < 5; i++)
             {
-                var bmp = await GetImage((int)cmcDropdown.SelectedItem);
-                imageView.SetImageBitmap(bmp);
-
-                var monoBmp = await ConvertToMonochrome(bmp);
-                imageView.SetImageBitmap(monoBmp);
+                try
+                {
+                    var (bmp, monoBmp) = await GetImages((int)cmcDropdown.SelectedItem);
+                    imageView.SetImageBitmap(bmp);
+                    //imageView.SetImageBitmap(monoBmp);
+                    await SendToPrinter(monoBmp);
+                    success = true;
+                }
+                catch (Exception e)
+                {
+                    Log.Error("FetchImage", e.ToString());
+                }
             }
-            catch (Exception e)
+            if (!success)
             {
-                Log.Error("FetchImage", e.ToString());
+                Toast.MakeText(this, "Error getting image after 5 retries", ToastLength.Short);
             }
         }
 
-        private async Task<Bitmap> GetImage(int cmc = 1)
+        private async Task<(Bitmap, Bitmap)> GetImages(int cmc = 1)
         {
 
             using (var httpClient = new HttpClient())
@@ -94,12 +122,52 @@ namespace Momir_IRL
                 var imageUrl = card.ImageUris["border_crop"];
                 //imageUrl = new Uri("https://c1.scryfall.com/file/scryfall-cards/border_crop/front/d/7/d79ee141-0ea6-45d6-a682-96a37d703394.jpg?1599708320"); // test scarab god
 
+                var name = card.Name.Split(" // ").First();
+                name = string.Join("", name.Split(System.IO.Path.GetInvalidFileNameChars()));
+
+                var monoStream = Assets.Open($"{(int)card.ConvertedManaCost}/{name}.bmp");
+
                 var imageResponse = await httpClient.GetAsync(imageUrl);
                 imageResponse.EnsureSuccessStatusCode();
                 using (var stream = await imageResponse.Content.ReadAsStreamAsync())
                 {
-                    return await BitmapFactory.DecodeStreamAsync(stream);
+                    var bmpTask = BitmapFactory.DecodeStreamAsync(stream);
+                    var monoBmpTask = BitmapFactory.DecodeStreamAsync(monoStream);
+                    await Task.WhenAll(bmpTask, monoBmpTask);
+                    return (await bmpTask, await monoBmpTask);
                 }
+            }
+        }
+
+        private async Task SendToPrinter(Bitmap bmp)
+        {
+            var pixels = new int[bmp.Width * bmp.Height];
+            bmp.GetPixels(pixels, 0, bmp.Width, 0, 0, bmp.Width, bmp.Height);
+            var row = pixels[0..bmp.Width];
+
+            //white = -16711936
+            //black = -65536
+            //(p >> 16) & 0xff
+            var boolPixels = pixels.Select(p => p == -16711936).ToArray();
+            var byteArray = new byte[pixels.Length / 8];
+            var j = -1;
+            for (var i = 0; i < boolPixels.Length; i += 1)
+            {
+                if (i % 8 == 0)
+                    j += 1;
+                if (boolPixels[i])
+                    byteArray[j] |= (byte)(1 << 7-(i % 8));
+            }
+
+            for (var i = 0; i < bmp.Height/8; i += 1) // debug just print an eigth of the picture
+            {
+                socket.OutputStream.Write(byteArray, i*bmp.Width / 8, bmp.Width / 8);
+            }
+            return;
+
+            while (socket.InputStream.IsDataAvailable())
+            {
+                var b = socket.InputStream.ReadByte();
             }
         }
 

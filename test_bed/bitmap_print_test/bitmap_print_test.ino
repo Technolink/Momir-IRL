@@ -2,6 +2,7 @@
 //#include "adalogo.h"
 //#include "monochrome.h"
 //#include "scarabgod.h"
+#include "aetherchaser.h"
 
 #include "SoftwareSerial.h"
 #define LED_PIN         13 // debug led         GREEN  WIRE TO BOARD
@@ -16,8 +17,6 @@
 SoftwareSerial PrinterSerial(PRINTER_RX_PIN, PRINTER_TX_PIN); // Declare SoftwareSerial obj first
 Adafruit_Thermal Printer(&PrinterSerial, PRINTER_DTR_PIN);     // Pass addr to printer constructor
 
-SoftwareSerial BluetoothSerial(BLUETHT_RX_PIN, BLUETHT_TX_PIN); // Declare SoftwareSerial obj first
-
 void setup() {
   PrinterSerial.begin(19200);
   Printer.begin();
@@ -25,29 +24,11 @@ void setup() {
   Printer.setHeatConfig(4, 255, 255);
   //printer.setTimes(30000, 2100);
   
-  //printer.printBitmap(monochrome_width, monochrome_height, monochrome_data);
-  //printer.feed(4);
+  Printer.printBitmap(monochrome_width, monochrome_height, monochrome_data);
+  Printer.feed(4);
   //printer.setDefault(); // Restore printer to defaults
-
-  BluetoothSerial.begin(9600); 
-
-  Serial.begin(9600);
 }
 
 void loop() {
-  int flag = 0;
-  if (BluetoothSerial.available()) {
-    flag = BluetoothSerial.read();
-  }
-  if (flag == '1') {
-    digitalWrite(LED_PIN, HIGH);
-    Serial.println("LED on");
-    BluetoothSerial.println("LED on");
-    flag = 0;
-  } else if (flag == '0') {
-    digitalWrite(LED_PIN, LOW);
-    Serial.println("LED off");
-    BluetoothSerial.println("LED off");
-    flag = 0;
-  }
+
 }

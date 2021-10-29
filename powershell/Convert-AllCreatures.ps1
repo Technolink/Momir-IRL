@@ -1,3 +1,21 @@
+<#
+function Get-Chars($i) {
+	$badchars = " ¡¢¶º»Ã"
+	$names = (ls "$i").Name
+	foreach ($name in $names) {
+		foreach ($badchar in $badchars.GetEnumerator()) {
+			if ($name -like "*$badchar*") {
+				Write-Host $i/$name
+				Remove-Item $i/$name
+			}
+		}
+	}
+	$chardict = @{}
+	$names | %{ $_.GetEnumerator() | %{$chardict[$_]=$true} }
+	($chardict.Keys | sort) -join ""
+}
+#>
+
 if (-not (Test-Path "$env:temp/momir")) {
 	mkdir "$env:temp/momir" | Out-Null
 }
