@@ -61,7 +61,7 @@ namespace Momir_IRL
             fab.Click += FabOnClick;
 
             await btConnectTask;
-            PopulateImage();
+            PopulateImage(new Random().Next(1, 8));
         }
 
         public override bool OnCreateOptionsMenu(IMenu menu)
@@ -86,14 +86,14 @@ namespace Momir_IRL
             await PopulateImage();
         }
 
-        private async Task PopulateImage()
+        private async Task PopulateImage(int? cmc = null)
         {
             var success = false;
             for (var i = 0; !success && i < 5; i++)
             {
                 try
                 {
-                    var (bmp, monoBmp) = await GetImages((int)cmcDropdown.SelectedItem);
+                    var (bmp, monoBmp) = await GetImages(cmc ?? (int)cmcDropdown.SelectedItem);
                     imageView.SetImageBitmap(bmp);
                     //imageView.SetImageBitmap(monoBmp);
                     Task.Run(async () =>
@@ -158,6 +158,7 @@ namespace Momir_IRL
                     j += 1;
                 if (boolPixels[i])
                     byteArray[j] |= (byte)(1 << 7-(i % 8));
+                    //byteArray[j] |= (byte)(1 << (i % 8));
             }
 
             for (var i = 0; i < bmp.Height; i += 1) 

@@ -17,7 +17,7 @@ SoftwareSerial PrinterSerial(PRINTER_RX_PIN, PRINTER_TX_PIN); // Declare Softwar
 Adafruit_Thermal Printer(&PrinterSerial, PRINTER_DTR_PIN);     // Pass addr to printer constructor
 
 byte bufferMaxHeight = 4;
-byte rowBuffer[1536];
+byte rowBuffer[1536]; // monochrome_width * 4
 int bufferIndex = 0;
 int bufferHeight = 0;
 
