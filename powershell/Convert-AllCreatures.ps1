@@ -1,6 +1,7 @@
-mkdir "$env:temp/momir" | Out-Null
-0..16 | % { mkdir "xamarin/Momir-IRL/Assets/$_" | Out-Null }
-
+if (-not (Test-Path "$env:temp/momir")) {
+	mkdir "$env:temp/momir" | Out-Null
+}
+0..16 | ? {-not (Test-Path "xamarin/Momir-IRL/Assets/$_")} | % {mkdir "xamarin/Momir-IRL/Assets/$_" | Out-Null }
 
 $url = "https://api.scryfall.com/bulk-data"
 $response = Invoke-RestMethod $url
