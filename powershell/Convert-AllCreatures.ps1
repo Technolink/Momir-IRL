@@ -8,7 +8,7 @@ $bulkUrl = ($response.data | ? { $_.type -eq "oracle_cards" }).download_uri
 
 $response = Invoke-RestMethod $bulkUrl
 
-$creatures = $response | ? { $_.type_line -like "Creature*" }
+$creatures = $response | ? { $_.type_line -like "*Creature*" }
 
 $i = 0
 foreach ($creature in $creatures) {
@@ -18,11 +18,15 @@ foreach ($creature in $creatures) {
 	if (-not $creature.image_uris) {
 		continue
 	}
-	
-	$name = $creature.name -replace " // ", "-"
+	$name = $creature.name -replace " // ", "-" -replace "`"", ""
 	
 	$path = "$env:temp/momir/$($name).jpg"
 	$target = "xamarin/Momir-IRL/Assets/$([int]$creature.cmc)/$($name).bmp"
+	
+	if ($creature.layout -eq "token" -or $creature.layout -eq "augment" ) {
+		continue
+	}
+	
 	if (Test-Path $target) {
 		continue
 	}
