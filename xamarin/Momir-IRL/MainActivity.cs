@@ -17,6 +17,7 @@ using Android.Util;
 using System.Text.Json;
 using System.Linq;
 using System.Collections;
+using System.Collections.Generic;
 
 namespace Momir_IRL
 {
@@ -39,7 +40,7 @@ namespace Momir_IRL
             {
                 var device = BluetoothAdapter.DefaultAdapter.BondedDevices.First(d => d.Name.Contains("HC-05"));
                 socket = device.CreateInsecureRfcommSocketToServiceRecord(Java.Util.UUID.FromString("00001101-0000-1000-8000-00805f9b34fb"));
-                btConnectTask = socket.ConnectAsync();
+                await socket.ConnectAsync();
             }
             catch (Exception e)
             {
@@ -60,7 +61,6 @@ namespace Momir_IRL
             var fab = FindViewById<FloatingActionButton>(Resource.Id.fab);
             fab.Click += FabOnClick;
 
-            await btConnectTask;
             PopulateImage(new Random().Next(1, 8));
         }
 
@@ -96,10 +96,13 @@ namespace Momir_IRL
                     var (bmp, monoBmp) = await GetImages(cmc ?? (int)cmcDropdown.SelectedItem);
                     imageView.SetImageBitmap(bmp);
                     //imageView.SetImageBitmap(monoBmp);
+                    /*
                     Task.Run(async () =>
                     {
                         await SendToPrinter(monoBmp);
                     });
+                    */
+                    await SendToPrinter(monoBmp);
                     success = true;
                 }
                 catch (Exception e)
@@ -160,6 +163,33 @@ namespace Momir_IRL
                     byteArray[j] |= (byte)(1 << 7-(i % 8));
                     //byteArray[j] |= (byte)(1 << (i % 8));
             }
+
+            // compress byte array?
+            var compressedBytes = new List<byte>();
+
+            for (var i = 0; i < byteArray.Length; i += 1)
+            {
+                var runValue = byteArray[i];
+                if (runValue != 0 && runValue != 255)
+                {
+                    compressedBytes.Add(runValue);
+                    continue;
+                }
+
+                // only compress 0x00 and 0xFF
+                var runStart = i;
+                var runLength = (byte)0;
+                while (i < byteArray.Length && runLength < 255 && byteArray[i] == runValue)
+                {
+                    i += 1;
+                    runLength += 1;
+                }
+                i -= 1;
+                compressedBytes.Add(runValue);
+                compressedBytes.Add(runLength);
+            }
+            
+            Log.Info("Compression", $"Compressed size: {compressedBytes.Count()}. Compression ratio: {100.0 * compressedBytes.Count() / (double)byteArray.Length}");
 
             for (var i = 0; i < bmp.Height; i += 1) 
             {
