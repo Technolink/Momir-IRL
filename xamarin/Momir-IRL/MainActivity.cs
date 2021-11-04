@@ -116,7 +116,7 @@ namespace Momir_IRL
             }
         }
 
-        private async Task<(Bitmap, Bitmap)> GetImages(int cmc = 1)
+        private async Task<Bitmap> GetImage(int cmc = 1)
         {
 
             using (var httpClient = new HttpClient())
@@ -130,24 +130,24 @@ namespace Momir_IRL
                 var name = card.Name.Split(" // ").First();
                 name = string.Join("", name.Split(System.IO.Path.GetInvalidFileNameChars()));
 
-                var monoStream = Assets.Open($"{(int)card.ConvertedManaCost}/{name}.bmp");
-
                 var imageResponse = await httpClient.GetAsync(imageUrl);
                 imageResponse.EnsureSuccessStatusCode();
                 using (var stream = await imageResponse.Content.ReadAsStreamAsync())
                 {
-                    var bmpTask = BitmapFactory.DecodeStreamAsync(stream);
-                    var monoBmpTask = BitmapFactory.DecodeStreamAsync(monoStream);
-                    await Task.WhenAll(bmpTask, monoBmpTask);
-                    return (await bmpTask, await monoBmpTask);
+                    return await BitmapFactory.DecodeStreamAsync(stream);
                 }
             }
         }
 
         private async Task SendToPrinter(Bitmap bmp)
         {
-            var pixels = new int[bmp.Width * bmp.Height];
-            bmp.GetPixels(pixels, 0, bmp.Width, 0, 0, bmp.Width, bmp.Height);
+            var scaledBmp = Bitmap.CreateScaledBitmap(bmp, 384, 544, true);
+            bmp.Recycle();
+            var monoBmp = await ConvertToMonochromeMagick(scaledBmp);
+            scaledBmp.Recycle();
+
+            var pixels = new int[monoBmp.Width * monoBmp.Height];
+            monoBmp.GetPixels(pixels, 0, monoBmp.Width, 0, 0, monoBmp.Width, monoBmp.Height);
 
             //white = -16711936
             //black = -65536
@@ -191,12 +191,12 @@ namespace Momir_IRL
             
             Log.Info("Compression", $"Compressed size: {compressedBytes.Count()}. Compression ratio: {100.0 * compressedBytes.Count() / (double)byteArray.Length}");
 
-            for (var i = 0; i < bmp.Height; i += 1) 
+            for (var i = 0; i < monoBmp.Height; i += 1) 
             {
-                socket.OutputStream.Write(byteArray, i++ * bmp.Width / 8, bmp.Width / 8);
-                socket.OutputStream.Write(byteArray, i++ * bmp.Width / 8, bmp.Width / 8);
-                socket.OutputStream.Write(byteArray, i++ * bmp.Width / 8, bmp.Width / 8);
-                socket.OutputStream.Write(byteArray, i * bmp.Width / 8, bmp.Width / 8);
+                socket.OutputStream.Write(byteArray, i++ * monoBmp.Width / 8, monoBmp.Width / 8);
+                socket.OutputStream.Write(byteArray, i++ * monoBmp.Width / 8, monoBmp.Width / 8);
+                socket.OutputStream.Write(byteArray, i++ * monoBmp.Width / 8, monoBmp.Width / 8);
+                socket.OutputStream.Write(byteArray, i * monoBmp.Width / 8, monoBmp.Width / 8);
 
                 while (!socket.InputStream.IsDataAvailable())
                 { } // wait for printer to print the row
@@ -204,8 +204,13 @@ namespace Momir_IRL
             }
             return;
         }
+        
+        private async Task<Bitmap> ConvertToMonochromeMagick(Bitmap bmp)
+        {
 
-        private async Task<Bitmap> ConvertToMonochrome(Bitmap bmp)
+        }
+
+        private async Task<Bitmap> ConvertToMonochromeManually(Bitmap bmp)
         {
             const int textboxHeight = 307;
             // Run on a background thread. TODO: Replace with ImageMagick + bindings

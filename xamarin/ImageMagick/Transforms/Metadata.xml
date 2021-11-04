@@ -1,0 +1,12 @@
+﻿<metadata>
+  <!--
+  This sample removes the class: android.support.v4.content.AsyncTaskLoader.LoadTask:
+  <remove-node path="/api/package[@name='android.support.v4.content']/class[@name='AsyncTaskLoader.LoadTask']" />
+  
+  This sample removes the method: android.support.v4.content.CursorLoader.loadInBackground:
+  <remove-node path="/api/package[@name='android.support.v4.content']/class[@name='CursorLoader']/method[@name='loadInBackground']" />
+  -->
+
+  <attr path="/api/package[@name='org.im4java.process']/interface[@name='ProcessListener']/method[@name='processStarted' and count(parameter)=1 and parameter[1][@type='java.lang.Process']]/parameter[1]" name="managedName">p0_1</attr>
+  <attr path="/api/package[@name='org.im4java.process']/interface[@name='ProcessListener']/method[@name='processTerminated' and count(parameter)=1 and parameter[1][@type='org.im4java.process.ProcessEvent']]/parameter[1]" name="managedName">p0_2</attr>
+</metadata>
