@@ -7,6 +7,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Momir-IRL", "Momir-IRL.cspr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImageMagick", "..\ImageMagick\ImageMagick.csproj", "{C3EAE6C8-B5A1-42C2-905A-386A041D7D73}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JMagick", "..\JMagick\JMagick.csproj", "{6249B34B-CEDB-4112-A37E-42DB0C1F65C6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImageMagickAndroid", "..\ImageMagickAndroid\ImageMagickAndroid.csproj", "{366B3AAA-E76E-411D-A1FC-1F2A0B7CEE5E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -23,6 +27,14 @@ Global
 		{C3EAE6C8-B5A1-42C2-905A-386A041D7D73}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C3EAE6C8-B5A1-42C2-905A-386A041D7D73}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C3EAE6C8-B5A1-42C2-905A-386A041D7D73}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6249B34B-CEDB-4112-A37E-42DB0C1F65C6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6249B34B-CEDB-4112-A37E-42DB0C1F65C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6249B34B-CEDB-4112-A37E-42DB0C1F65C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6249B34B-CEDB-4112-A37E-42DB0C1F65C6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{366B3AAA-E76E-411D-A1FC-1F2A0B7CEE5E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{366B3AAA-E76E-411D-A1FC-1F2A0B7CEE5E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{366B3AAA-E76E-411D-A1FC-1F2A0B7CEE5E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{366B3AAA-E76E-411D-A1FC-1F2A0B7CEE5E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

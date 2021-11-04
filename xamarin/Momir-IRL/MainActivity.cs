@@ -18,6 +18,7 @@ using System.Text.Json;
 using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
+using Magick;
 
 namespace Momir_IRL
 {
@@ -207,7 +208,7 @@ namespace Momir_IRL
         
         private async Task<Bitmap> ConvertToMonochromeMagick(Bitmap bmp)
         {
-
+            Magick
         }
 
         private async Task<Bitmap> ConvertToMonochromeManually(Bitmap bmp)
