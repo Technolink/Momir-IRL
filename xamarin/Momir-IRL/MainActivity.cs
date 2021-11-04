@@ -93,16 +93,21 @@ namespace Momir_IRL
             {
                 try
                 {
-                    var (bmp, monoBmp) = await GetImages(cmc ?? (int)cmcDropdown.SelectedItem);
+                    var bmp = await GetImage(cmc ?? (int)cmcDropdown.SelectedItem);
                     imageView.SetImageBitmap(bmp);
-                    //imageView.SetImageBitmap(monoBmp);
-                    /*
+
+                    var scaledBmp = Bitmap.CreateScaledBitmap(bmp, 384, 544, true);
+                    bmp.Recycle();
+                    var monoBmp = await ConvertToMonochromeMagick(scaledBmp);
+                    scaledBmp.Recycle();
+
+                    imageView.SetImageBitmap(monoBmp);                    /*
                     Task.Run(async () =>
                     {
                         await SendToPrinter(monoBmp);
                     });
                     */
-                    await SendToPrinter(monoBmp);
+                    //await SendToPrinter(monoBmp);
                     success = true;
                 }
                 catch (Exception e)
@@ -141,13 +146,8 @@ namespace Momir_IRL
 
         private async Task SendToPrinter(Bitmap bmp)
         {
-            var scaledBmp = Bitmap.CreateScaledBitmap(bmp, 384, 544, true);
-            bmp.Recycle();
-            var monoBmp = await ConvertToMonochromeMagick(scaledBmp);
-            scaledBmp.Recycle();
-
-            var pixels = new int[monoBmp.Width * monoBmp.Height];
-            monoBmp.GetPixels(pixels, 0, monoBmp.Width, 0, 0, monoBmp.Width, monoBmp.Height);
+            var pixels = new int[bmp.Width * bmp.Height];
+            bmp.GetPixels(pixels, 0, bmp.Width, 0, 0, bmp.Width, bmp.Height);
 
             //white = -16711936
             //black = -65536
@@ -191,12 +191,12 @@ namespace Momir_IRL
             
             Log.Info("Compression", $"Compressed size: {compressedBytes.Count()}. Compression ratio: {100.0 * compressedBytes.Count() / (double)byteArray.Length}");
 
-            for (var i = 0; i < monoBmp.Height; i += 1) 
+            for (var i = 0; i < bmp.Height; i += 1) 
             {
-                socket.OutputStream.Write(byteArray, i++ * monoBmp.Width / 8, monoBmp.Width / 8);
-                socket.OutputStream.Write(byteArray, i++ * monoBmp.Width / 8, monoBmp.Width / 8);
-                socket.OutputStream.Write(byteArray, i++ * monoBmp.Width / 8, monoBmp.Width / 8);
-                socket.OutputStream.Write(byteArray, i * monoBmp.Width / 8, monoBmp.Width / 8);
+                socket.OutputStream.Write(byteArray, i++ * bmp.Width / 8, bmp.Width / 8);
+                socket.OutputStream.Write(byteArray, i++ * bmp.Width / 8, bmp.Width / 8);
+                socket.OutputStream.Write(byteArray, i++ * bmp.Width / 8, bmp.Width / 8);
+                socket.OutputStream.Write(byteArray, i * bmp.Width / 8, bmp.Width / 8);
 
                 while (!socket.InputStream.IsDataAvailable())
                 { } // wait for printer to print the row
