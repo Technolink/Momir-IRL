@@ -8,7 +8,7 @@
 //#define monochrome_height 544
 #define monochrome_height 4
 
-SoftwareSerial BluetoothSerial(BLUETHT_RX_PIN, BLUETHT_TX_PIN); // Declare SoftwareSerial obj first
+//SoftwareSerial BluetoothSerial(BLUETHT_RX_PIN, BLUETHT_TX_PIN); // Declare SoftwareSerial obj first
 
 byte imageBuffer[384*4]; // monochrome_width * monochrome_height
 int bufferIndex = 0;
@@ -18,7 +18,7 @@ const int duration = 2000;
 void setup() {
   pinMode(LED_PIN, OUTPUT);
 
-  BluetoothSerial.begin(9600);
+  //BluetoothSerial.begin(9600);
   Serial.begin(9600); // bluetooth serial
 
   for (int i=0; i<monochrome_width * monochrome_height; i++)
@@ -27,16 +27,15 @@ void setup() {
 
 void loop() {
   byte d;
-  while (BluetoothSerial.available()) {
-    d = BluetoothSerial.read();
+  while (Serial.available()) {
+    d = Serial.read();
     imageBuffer[bufferIndex] = d;
     bufferIndex += 1;
-    Serial.println(d);
 
     if (bufferIndex == monochrome_width/8 * monochrome_height) {
       // print
       bufferIndex = 0;
-      BluetoothSerial.write(5); // let the program know we're ready      
+      Serial.write(5); // let the program know we're ready      
 
       digitalWrite(LED_PIN, HIGH);   // turn the LED on (HIGH is the voltage level)
       delay(duration);           // wait for a second

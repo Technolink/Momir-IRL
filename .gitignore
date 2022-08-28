@@ -1,4 +1,6 @@
-xamarin/Momir-IRL/Assets/*/*.bmp
+xamarin/Momir-IRL/Assets/*/*/*.bmp
+xamarin/Momir-IRL/original/*/*.bmp
+xamarin/Momir-IRL/monochrome/*/*.bmp
 
 # Built application files
 *.apk

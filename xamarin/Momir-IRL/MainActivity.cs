@@ -28,6 +28,7 @@ namespace Momir_IRL
         private ImageView imageView;
         private Spinner cmcDropdown;
         private BluetoothSocket socket;
+        private TextView statusLabel;
 
         protected async override void OnCreate(Bundle savedInstanceState)
         {
@@ -35,7 +36,10 @@ namespace Momir_IRL
             Xamarin.Essentials.Platform.Init(this, savedInstanceState);
             SetContentView(Resource.Layout.activity_main);
 
-            Task btConnectTask = Task.CompletedTask;
+            statusLabel = FindViewById<TextView>(Resource.Id.status_label);
+
+            statusLabel.Text = "Connecting to Bluetooth...";
+
             try
             {
                 var device = BluetoothAdapter.DefaultAdapter.BondedDevices.First(d => d.Name.Contains("HC-05"));
@@ -45,14 +49,13 @@ namespace Momir_IRL
             catch (Exception e)
             {
                 Log.Error("Bluetooth Connect", e.ToString());
-                Toast.MakeText(this, "Could not connect to HC-05 Bluetooth. Connect before starting the app", ToastLength.Long);
+                statusLabel.Text = "Could not connect to Bluetooth";
             }
 
             var toolbar = FindViewById<Toolbar>(Resource.Id.toolbar);
             SetSupportActionBar(toolbar);
 
-
-            var cmcs = Enumerable.Range(1, 16).Where(i => Assets.List(i.ToString()).Any());
+            var cmcs = Enumerable.Range(1, 16).Where(i => Assets.List($"monochrome/{i}").Any());
 
             imageView = FindViewById<ImageView>(Resource.Id.card);
             cmcDropdown = FindViewById<Spinner>(Resource.Id.cmc);
@@ -61,7 +64,7 @@ namespace Momir_IRL
             var fab = FindViewById<FloatingActionButton>(Resource.Id.fab);
             fab.Click += FabOnClick;
 
-            PopulateImage(new Random().Next(1, 8));
+            statusLabel.Text = "Select CMC and hit send!";
         }
 
         public override bool OnCreateOptionsMenu(IMenu menu)
@@ -93,16 +96,11 @@ namespace Momir_IRL
             {
                 try
                 {
+                    statusLabel.Text = "Fetching card from Scryfall...";
                     var (bmp, monoBmp) = await GetImages(cmc ?? (int)cmcDropdown.SelectedItem);
-                    imageView.SetImageBitmap(bmp);
-                    //imageView.SetImageBitmap(monoBmp);
-                    /*
-                    Task.Run(async () =>
-                    {
-                        await SendToPrinter(monoBmp);
-                    });
-                    */
-                    await SendToPrinter(monoBmp);
+                    imageView.SetImageBitmap(monoBmp);
+
+                    SendToPrinter(monoBmp).ConfigureAwait(false);
                     success = true;
                 }
                 catch (Exception e)
@@ -127,10 +125,8 @@ namespace Momir_IRL
                 var card = JsonSerializer.Deserialize<Card>(responseString);
                 var imageUrl = card.ImageUris["border_crop"];
 
-                var name = card.Name.Split(" // ").First();
-                name = string.Join("", name.Split(System.IO.Path.GetInvalidFileNameChars()));
-
-                var monoStream = Assets.Open($"{(int)card.ConvertedManaCost}/{name}.bmp");
+                //name = "Zuberi, Golden Feather";
+                var monoStream = Assets.Open($"monochrome/{(int)card.ConvertedManaCost}/{card.Id}.bmp");
 
                 var imageResponse = await httpClient.GetAsync(imageUrl);
                 imageResponse.EnsureSuccessStatusCode();
@@ -144,8 +140,11 @@ namespace Momir_IRL
             }
         }
 
+        const int arduinoBufferSize = 384 * 32 / 8;
         private async Task SendToPrinter(Bitmap bmp)
         {
+            statusLabel.Text = "Sending to printer...";
+
             var pixels = new int[bmp.Width * bmp.Height];
             bmp.GetPixels(pixels, 0, bmp.Width, 0, 0, bmp.Width, bmp.Height);
 
@@ -189,60 +188,31 @@ namespace Momir_IRL
                 compressedBytes.Add(runLength);
             }
             
-            Log.Info("Compression", $"Compressed size: {compressedBytes.Count()}. Compression ratio: {100.0 * compressedBytes.Count() / (double)byteArray.Length}");
+            Log.Info("Printer", $"Compressed size: {compressedBytes.Count()}. Compression ratio: {100.0 * compressedBytes.Count() / (double)byteArray.Length}");
 
-            for (var i = 0; i < bmp.Height; i += 1) 
+            for (var i = 0; i < byteArray.Length / arduinoBufferSize; i++)
             {
-                socket.OutputStream.Write(byteArray, i++ * bmp.Width / 8, bmp.Width / 8);
-                socket.OutputStream.Write(byteArray, i++ * bmp.Width / 8, bmp.Width / 8);
-                socket.OutputStream.Write(byteArray, i++ * bmp.Width / 8, bmp.Width / 8);
-                socket.OutputStream.Write(byteArray, i * bmp.Width / 8, bmp.Width / 8);
-
-                while (!socket.InputStream.IsDataAvailable())
+                socket.OutputStream.Write(byteArray, i*arduinoBufferSize, arduinoBufferSize);
+                socket.OutputStream.Flush();
+                var startWait = DateTime.UtcNow;
+                var timeout = TimeSpan.FromSeconds(3);
+                while (!socket.InputStream.IsDataAvailable() && DateTime.UtcNow - startWait < timeout)
                 { } // wait for printer to print the row
-                var b = socket.InputStream.ReadByte();
-            }
-            return;
-        }
-
-        private async Task<Bitmap> ConvertToMonochrome(Bitmap bmp)
-        {
-            const int textboxHeight = 307;
-            // Run on a background thread. TODO: Replace with ImageMagick + bindings
-            return await Task.Run(() =>
-            {
-                //var bitmap = bmp.Copy(Bitmap.Config.Argb8888, true);
-                var bitmap = Bitmap.CreateScaledBitmap(bmp, 384, 544, false);
-                var canvas = new Canvas(bitmap);
-                var ma = new ColorMatrix();
-                ma.SetSaturation(0);
-                var paint = new Paint();
-                paint.SetColorFilter(new ColorMatrixColorFilter(ma));
-                canvas.DrawBitmap(bitmap, 0, 0, paint);
-
-                // Adapted from https://stackoverflow.com/questions/29078142/convert-bitmap-to-1bit-bitmap
-                var pixels = new int[bitmap.Width * bitmap.Height];
-                bitmap.GetPixels(pixels, 0, bitmap.Width, 0, 0, bitmap.Width, bitmap.Height);
-
-                for (var y = 0; y < bitmap.Height; y++)
+                if (DateTime.UtcNow - startWait >= timeout)
                 {
-                    for (int x = 0; x < bitmap.Width; x++)
-                    {
-                        int pixel = bitmap.GetPixel(x, y);
-                        int lowestBit = pixel & 0xff;
-                        if (y < textboxHeight && lowestBit < 64 || y >= textboxHeight && lowestBit < 128)
-                        {
-                            bitmap.SetPixel(x, y, Color.Black);
-                        }
-                        else
-                        {
-                            bitmap.SetPixel(x, y, Color.White);
-                        }
-                    }
+                    Log.Error("Printer", "Arudino not responding!");
+                    statusLabel.Text = "Select CMC and hit send!";
+                    throw new IOException("Arduino not responding!");
                 }
+                var b = socket.InputStream.ReadByte();
+                if (b == 6)
+                {
+                    break;
+                }
+            }
 
-                return bitmap;
-            });
+            statusLabel.Text = "Select CMC and hit send!";
+            return;
         }
 
         public override void OnRequestPermissionsResult(int requestCode, string[] permissions, [GeneratedEnum] Android.Content.PM.Permission[] grantResults)

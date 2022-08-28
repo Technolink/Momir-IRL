@@ -7,20 +7,32 @@
     app:layout_behavior="@string/appbar_scrolling_view_behavior"
     tools:showIn="@layout/activity_main">
     <TextView
+        android:id="@+id/status_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="20dp"
+        android:layout_centerHorizontal="true"
+        android:text="Loading app"/>
+    <TextView
         android:id="@+id/cmc_label"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:textSize="40dp"
         android:text="CMC:"/>
     <Spinner
         android:id="@+id/cmc"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="100dp"
+        android:layout_height="50dp"
+        android:layout_alignParentBottom="true"
+        android:textSize="40dp"
         android:layout_toRightOf="@+id/cmc_label"/>
     <ImageView
         android:id="@+id/card"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_below="@+id/cmc"
+        android:layout_above="@+id/cmc"
+        android:layout_alignParentTop="true"
         android:layout_centerInParent="true"/>
 
 </RelativeLayout>
