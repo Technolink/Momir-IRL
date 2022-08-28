@@ -1,25 +1,5 @@
-<#
-function Get-Chars($i) {
-	$badchars = " ¡¢¶º»Ã"
-	$names = (ls "$i").Name
-	foreach ($name in $names) {
-		foreach ($badchar in $badchars.GetEnumerator()) {
-			if ($name -like "*$badchar*") {
-				Write-Host $i/$name
-				Remove-Item $i/$name
-			}
-		}
-	}
-	$chardict = @{}
-	$names | %{ $_.GetEnumerator() | %{$chardict[$_]=$true} }
-	($chardict.Keys | sort) -join ""
-}
-#>
-
-if (-not (Test-Path "$env:temp/momir")) {
-	mkdir "$env:temp/momir" | Out-Null
-}
-0..16 | ? {-not (Test-Path "xamarin/Momir-IRL/Assets/$_")} | % {mkdir "xamarin/Momir-IRL/Assets/$_" | Out-Null }
+0..16 | ? {-not (Test-Path "xamarin/Momir-IRL/Assets/original/$_")} | % {mkdir "xamarin/Momir-IRL/Assets/original/$_" | Out-Null }
+0..16 | ? {-not (Test-Path "xamarin/Momir-IRL/Assets/monochrome/$_")} | % {mkdir "xamarin/Momir-IRL/Assets/monochrome/$_" | Out-Null }
 
 $url = "https://api.scryfall.com/bulk-data"
 $response = Invoke-RestMethod $url
@@ -38,13 +18,11 @@ foreach ($creature in $creatures) {
 		# double face card or otherwise doesn't have an image
 		continue
 	}
-	$name = ($creature.name -split " // ")[0]
-	$name = $name.Split([IO.Path]::GetInvalidFileNameChars()) -join ''
 	
-	$path = "$env:temp/momir/$($name).jpg"
-	$target = "xamarin/Momir-IRL/Assets/$([int]$creature.cmc)/$($name).bmp"
+	$path = "xamarin/Momir-IRL/Assets/original/$([int]$creature.cmc)/$($creature.id).bmp"
+	$target = "xamarin/Momir-IRL/Assets/monochrome/$([int]$creature.cmc)/$($creature.id).bmp"
 	
-	if ($creature.layout -eq "token" -or $creature.layout -eq "augment" -or (Test-Path $target)) {
+	if ($creature.layout -eq "token" -or $creature.layout -eq "augment" -or ((Test-Path $path) -and (Test-Path $target))) {
 		continue
 	}
 	
@@ -54,5 +32,3 @@ foreach ($creature in $creatures) {
 	}
 	magick convert $path -resize 80% -monochrome $target
 }
-
-Remove-Item "$env:temp/momir" -Recurse -Force
