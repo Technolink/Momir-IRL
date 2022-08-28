@@ -39,13 +39,23 @@ void setup() {
 }
 
 void loop() {
-  byte d;
+  byte d, len;
 
   while (Serial.available()) {
     d = Serial.read();
-    imageBuffer[bufferIndex] = d;
-    bufferIndex += 1;
-    imageIndex += 1;
+    if (d != 0 && d != 255) {
+      imageBuffer[bufferIndex] = d;
+      bufferIndex += 1;
+      imageIndex += 1;
+    } else {
+      while (!Serial.available()) { }
+      len = Serial.read();
+      for (int i=0; i<len; i++) {
+        imageBuffer[bufferIndex] = d;
+        bufferIndex += 1;
+      }
+      imageIndex += len;
+    }
 
     if (bufferIndex == monochrome_width/8 * buffer_height) {
       // print

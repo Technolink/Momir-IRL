@@ -163,37 +163,53 @@ namespace Momir_IRL
                     //byteArray[j] |= (byte)(1 << (i % 8));
             }
 
-            // compress byte array?
-            var compressedBytes = new List<byte>();
-
-            for (var i = 0; i < byteArray.Length; i += 1)
-            {
-                var runValue = byteArray[i];
-                if (runValue != 0 && runValue != 255)
-                {
-                    compressedBytes.Add(runValue);
-                    continue;
-                }
-
-                // only compress 0x00 and 0xFF
-                var runStart = i;
-                var runLength = (byte)0;
-                while (i < byteArray.Length && runLength < 255 && byteArray[i] == runValue)
-                {
-                    i += 1;
-                    runLength += 1;
-                }
-                i -= 1;
-                compressedBytes.Add(runValue);
-                compressedBytes.Add(runLength);
-            }
-            
-            Log.Info("Printer", $"Compressed size: {compressedBytes.Count()}. Compression ratio: {100.0 * compressedBytes.Count() / (double)byteArray.Length}");
 
             for (var i = 0; i < byteArray.Length / arduinoBufferSize; i++)
             {
-                socket.OutputStream.Write(byteArray, i*arduinoBufferSize, arduinoBufferSize);
-                socket.OutputStream.Flush();
+                var compressedBytes = new List<byte>();
+    
+                for (var idx = 0; idx < arduinoBufferSize; idx += 1)
+                {
+                    var runValue = byteArray[i* arduinoBufferSize + idx];
+                    if (runValue != 0 && runValue != 255)
+                    {
+                        compressedBytes.Add(runValue);
+                        continue;
+                    }
+
+                    // only compress 0x00 and 0xFF
+                    var runStart = idx;
+                    var runLength = (byte)0;
+                    while (idx < arduinoBufferSize && runLength < 255 && byteArray[i * arduinoBufferSize + idx] == runValue)
+                    {
+                        idx += 1;
+                        runLength += 1;
+                    }
+                    idx -= 1;
+                    compressedBytes.Add(runValue);
+                    compressedBytes.Add(runLength);
+                }
+
+                var uncompressedBytes = new List<byte>();
+                for (var idx = 0; idx < compressedBytes.Count; idx += 1)
+                {
+                    if (compressedBytes[idx] != 0 && compressedBytes[idx] != 255)
+                    {
+                        uncompressedBytes.Add(compressedBytes[idx]);
+                    }
+                    else
+                    {
+                        for (var r = 0; r< compressedBytes[idx + 1]; r++)
+                        {
+                            uncompressedBytes.Add(compressedBytes[idx]);
+                        }
+                        idx += 1;
+                    }
+                }
+
+                Log.Info("Printer", $"Chunk {i} compressed size: {compressedBytes.Count()}. Compression ratio: {100.0 * compressedBytes.Count() / (double)arduinoBufferSize}");
+                socket.OutputStream.Write(compressedBytes.ToArray(), 0, compressedBytes.Count);
+
                 var startWait = DateTime.UtcNow;
                 var timeout = TimeSpan.FromSeconds(3);
                 while (!socket.InputStream.IsDataAvailable() && DateTime.UtcNow - startWait < timeout)
@@ -205,6 +221,10 @@ namespace Momir_IRL
                     throw new IOException("Arduino not responding!");
                 }
                 var b = socket.InputStream.ReadByte();
+                if (b == 5)
+                {
+                    Log.Info("Printer", $"Chunk {i} printed");
+                }
                 if (b == 6)
                 {
                     break;
