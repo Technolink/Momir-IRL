@@ -6,17 +6,13 @@ using Android.Runtime;
 using Android.Views;
 using AndroidX.AppCompat.App;
 using Google.Android.Material.FloatingActionButton;
-using System.Net.Http;
 using System.Threading.Tasks;
 using System.IO;
 using Android.Widget;
 using Toolbar = AndroidX.AppCompat.Widget.Toolbar;
-using ScryfallApi.Client.Models;
 using Android.Graphics;
 using Android.Util;
-using System.Text.Json;
 using System.Linq;
-using System.Collections;
 using System.Collections.Generic;
 
 namespace Momir_IRL
@@ -29,6 +25,8 @@ namespace Momir_IRL
         private Spinner cmcDropdown;
         private BluetoothSocket socket;
         private TextView statusLabel;
+        private volatile bool printing = false;
+        private readonly object syncRoot = new object();
 
         protected async override void OnCreate(Bundle savedInstanceState)
         {
@@ -37,20 +35,8 @@ namespace Momir_IRL
             SetContentView(Resource.Layout.activity_main);
 
             statusLabel = FindViewById<TextView>(Resource.Id.status_label);
-
             statusLabel.Text = "Connecting to Bluetooth...";
-
-            try
-            {
-                var device = BluetoothAdapter.DefaultAdapter.BondedDevices.First(d => d.Name.Contains("HC-05"));
-                socket = device.CreateInsecureRfcommSocketToServiceRecord(Java.Util.UUID.FromString("00001101-0000-1000-8000-00805f9b34fb"));
-                await socket.ConnectAsync();
-            }
-            catch (Exception e)
-            {
-                Log.Error("Bluetooth Connect", e.ToString());
-                statusLabel.Text = "Could not connect to Bluetooth";
-            }
+            await ConnectToBluetooth();
 
             var toolbar = FindViewById<Toolbar>(Resource.Id.toolbar);
             SetSupportActionBar(toolbar);
@@ -99,13 +85,15 @@ namespace Momir_IRL
                     statusLabel.Text = "Fetching card from Scryfall...";
                     var (bmp, monoBmp) = await GetImages(cmc ?? (int)cmcDropdown.SelectedItem);
                     imageView.SetImageBitmap(bmp);
+                    imageView.Invalidate();
 
-                    SendToPrinter(monoBmp).ConfigureAwait(false);
+                    await SendToPrinter(monoBmp).ConfigureAwait(false);
                     success = true;
                 }
                 catch (Exception e)
                 {
-                    Log.Error("FetchImage", e.ToString());
+                    printing = false;
+                    Log.Error("Printer", e.ToString());
                 }
             }
             if (!success)
@@ -116,33 +104,29 @@ namespace Momir_IRL
 
         private async Task<(Bitmap, Bitmap)> GetImages(int cmc = 1)
         {
+            var cards = await Assets.ListAsync($"original/{cmc}");
+            var card = cards[new Random().Next(0, cards.Length - 1)];
 
-            using (var httpClient = new HttpClient())
-            {
-                var response = await httpClient.GetAsync(string.Format(ScryfallUrl, cmc));
-                response.EnsureSuccessStatusCode();
-                var responseString = await response.Content.ReadAsStringAsync();
-                var card = JsonSerializer.Deserialize<Card>(responseString);
-                var imageUrl = card.ImageUris["border_crop"];
+            var origialStream = Assets.Open($"original/{cmc}/{card}");
+            var monoStream = Assets.Open($"monochrome/{cmc}/{card}");
 
-                //name = "Zuberi, Golden Feather";
-                var monoStream = Assets.Open($"monochrome/{(int)card.ConvertedManaCost}/{card.Id}.bmp");
-
-                var imageResponse = await httpClient.GetAsync(imageUrl);
-                imageResponse.EnsureSuccessStatusCode();
-                using (var stream = await imageResponse.Content.ReadAsStreamAsync())
-                {
-                    var bmpTask = BitmapFactory.DecodeStreamAsync(stream);
-                    var monoBmpTask = BitmapFactory.DecodeStreamAsync(monoStream);
-                    await Task.WhenAll(bmpTask, monoBmpTask);
-                    return (await bmpTask, await monoBmpTask);
-                }
-            }
+            var origialBmpTask = BitmapFactory.DecodeStreamAsync(origialStream);
+            var monoBmpTask = BitmapFactory.DecodeStreamAsync(monoStream);
+            await Task.WhenAll(origialBmpTask, monoBmpTask);
+            return (await origialBmpTask, await monoBmpTask);
         }
 
         const int arduinoBufferSize = 384 * 34 / 8;
         private async Task SendToPrinter(Bitmap bmp)
         {
+            lock (syncRoot)
+            {
+                if (printing)
+                {
+                    //return;
+                }
+                printing = true;
+            }
             statusLabel.Text = "Sending to printer...";
 
             var pixels = new int[bmp.Width * bmp.Height];
@@ -216,7 +200,6 @@ namespace Momir_IRL
                 { } // wait for printer to print the row
                 if (DateTime.UtcNow - startWait >= timeout)
                 {
-                    Log.Error("Printer", "Arudino not responding!");
                     statusLabel.Text = "Select CMC and hit send!";
                     throw new IOException("Arduino not responding!");
                 }
@@ -231,6 +214,10 @@ namespace Momir_IRL
                 }
             }
 
+            lock (syncRoot)
+            {
+                printing = false;
+            }
             statusLabel.Text = "Select CMC and hit send!";
             return;
         }
@@ -240,6 +227,21 @@ namespace Momir_IRL
             Xamarin.Essentials.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);
 
             base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
+        }
+
+        private async Task ConnectToBluetooth()
+        {
+            try
+            {
+                var device = BluetoothAdapter.DefaultAdapter.BondedDevices.First(d => d.Name.Contains("HC-05"));
+                socket = device.CreateInsecureRfcommSocketToServiceRecord(Java.Util.UUID.FromString("00001101-0000-1000-8000-00805f9b34fb"));
+                await socket.ConnectAsync();
+            }
+            catch (Exception e)
+            {
+                Log.Error("Bluetooth Connect", e.ToString());
+                statusLabel.Text = "Could not connect to Bluetooth";
+            }
         }
 	}
 }

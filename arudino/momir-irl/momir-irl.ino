@@ -5,6 +5,7 @@
 #define PRINTER_RX_PIN  2  // Arduino receive   GREEN  WIRE   labeled TX  on printer
 // https://learn.adafruit.com/mini-thermal-receipt-printer/hacking
 #define PRINTER_DTR_PIN 4  // Arduino DTR       ORANGE WIRE   labeled DTR on printer
+#define PRINTER_EN_PIN  7  // Printer enable    WHITE  WIRE   low if printer should be used
 
 #define BLUETHT_TX_PIN  1  // Bluetht transmit  BLUE   WIRE   labeled RX  on bluetooth
 #define BLUETHT_RX_PIN  0  // Bluetht receive   PURPLE WIRE   labeled TX  on bluetooth
@@ -23,6 +24,8 @@ int imageIndex = 0;
 const int duration = 2000;
 
 void setup() {
+  pinMode(PRINTER_EN_PIN, INPUT);
+
   PrinterSerial.begin(19200);
   Printer.begin();
 
@@ -37,6 +40,7 @@ void setup() {
 
 void loop() {
   byte d, len;
+  bool enabled;
 
   while (Serial.available()) {
     d = Serial.read();
@@ -53,13 +57,16 @@ void loop() {
     }
 
     if (bufferIndex >= monochrome_width/8 * buffer_height) {
+      enabled = digitalRead(PRINTER_EN_PIN) == LOW;
       // print
-      Printer.printBitmap(monochrome_width, buffer_height, imageBuffer, false);
+      if (enabled)
+        Printer.printBitmap(monochrome_width, buffer_height, imageBuffer, false);
       bufferIndex = 0;
 
       if (imageIndex >= monochrome_width/8 * monochrome_height) {
         imageIndex = 0;
-        Printer.feed(3);
+        if (enabled)
+          Printer.feed(3);
         Serial.write(6); // let the program know we're done
       } else {
         Serial.write(5); // let the program know we're ready for more chunks
