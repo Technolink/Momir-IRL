@@ -87,12 +87,11 @@ namespace Momir_IRL
                     imageView.SetImageBitmap(bmp);
                     imageView.Invalidate();
 
-                    await SendToPrinter(monoBmp).ConfigureAwait(false);
+                    SendToPrinter(monoBmp).ConfigureAwait(false);
                     success = true;
                 }
                 catch (Exception e)
                 {
-                    printing = false;
                     Log.Error("Printer", e.ToString());
                 }
             }
@@ -127,99 +126,26 @@ namespace Momir_IRL
                 }
                 printing = true;
             }
-            statusLabel.Text = "Sending to printer...";
-
-            var pixels = new int[bmp.Width * bmp.Height];
-            bmp.GetPixels(pixels, 0, bmp.Width, 0, 0, bmp.Width, bmp.Height);
-
-            //white = -16711936
-            //black = -65536
-            //(p >> 16) & 0xff
-            var boolPixels = pixels.Select(p => p == -65536).ToArray();
-            var byteArray = new byte[pixels.Length / 8];
-            var j = -1;
-            for (var i = 0; i < boolPixels.Length; i += 1)
+            try
             {
-                if (i % 8 == 0)
-                    j += 1;
-                if (boolPixels[i])
-                    byteArray[j] |= (byte)(1 << 7-(i % 8));
-                    //byteArray[j] |= (byte)(1 << (i % 8));
-            }
+                statusLabel.Text = "Sending to printer...";
 
+                var byteArray = GetBytesFromImage(bmp);
 
-            for (var i = 0; i < byteArray.Length / arduinoBufferSize; i++)
-            {
-                var compressedBytes = new List<byte>();
-    
-                for (var idx = 0; idx < arduinoBufferSize; idx += 1)
+                for (var i = 0; i < byteArray.Length / arduinoBufferSize; i++)
                 {
-                    var runValue = byteArray[i* arduinoBufferSize + idx];
-                    if (runValue != 0 && runValue != 255)
-                    {
-                        compressedBytes.Add(runValue);
-                        continue;
-                    }
-
-                    // only compress 0x00 and 0xFF
-                    var runStart = idx;
-                    var runLength = (byte)0;
-                    while (idx < arduinoBufferSize && runLength < 255 && byteArray[i * arduinoBufferSize + idx] == runValue)
-                    {
-                        idx += 1;
-                        runLength += 1;
-                    }
-                    idx -= 1;
-                    compressedBytes.Add(runValue);
-                    compressedBytes.Add(runLength);
-                }
-
-                var uncompressedBytes = new List<byte>();
-                for (var idx = 0; idx < compressedBytes.Count; idx += 1)
-                {
-                    if (compressedBytes[idx] != 0 && compressedBytes[idx] != 255)
-                    {
-                        uncompressedBytes.Add(compressedBytes[idx]);
-                    }
-                    else
-                    {
-                        for (var r = 0; r< compressedBytes[idx + 1]; r++)
-                        {
-                            uncompressedBytes.Add(compressedBytes[idx]);
-                        }
-                        idx += 1;
-                    }
-                }
-
-                Log.Info("Printer", $"Chunk {i} compressed size: {compressedBytes.Count()}. Compression ratio: {100.0 * compressedBytes.Count() / arduinoBufferSize*8.0}");
-                socket.OutputStream.Write(compressedBytes.ToArray(), 0, compressedBytes.Count);
-
-                var startWait = DateTime.UtcNow;
-                var timeout = TimeSpan.FromSeconds(3);
-                while (!socket.InputStream.IsDataAvailable() && DateTime.UtcNow - startWait < timeout)
-                { } // wait for printer to print the row
-                if (DateTime.UtcNow - startWait >= timeout)
-                {
-                    statusLabel.Text = "Select CMC and hit send!";
-                    throw new IOException("Arduino not responding!");
-                }
-                var b = socket.InputStream.ReadByte();
-                if (b == 5)
-                {
-                    Log.Info("Printer", $"Chunk {i} printed");
-                }
-                if (b == 6)
-                {
-                    break;
+                    var compressedBytes = GetCompressedChunk(byteArray, i);
+                    SendChunkToPrinter(compressedBytes, i);
                 }
             }
-
-            lock (syncRoot)
+            finally
             {
-                printing = false;
+                lock (syncRoot)
+                {
+                    printing = false;
+                }
+                statusLabel.Text = "Select CMC and hit send!";
             }
-            statusLabel.Text = "Select CMC and hit send!";
-            return;
         }
 
         public override void OnRequestPermissionsResult(int requestCode, string[] permissions, [GeneratedEnum] Android.Content.PM.Permission[] grantResults)
@@ -242,6 +168,77 @@ namespace Momir_IRL
                 Log.Error("Bluetooth Connect", e.ToString());
                 statusLabel.Text = "Could not connect to Bluetooth";
             }
+        }
+
+        private byte[] GetBytesFromImage(Bitmap bmp)
+        {
+            var pixels = new int[bmp.Width * bmp.Height];
+            bmp.GetPixels(pixels, 0, bmp.Width, 0, 0, bmp.Width, bmp.Height);
+
+            //white = -16711936
+            //black = -65536
+            //(p >> 16) & 0xff
+            var boolPixels = pixels.Select(p => p == -65536).ToArray();
+            var byteArray = new byte[pixels.Length / 8];
+            var j = -1;
+            for (var i = 0; i < boolPixels.Length; i += 1)
+            {
+                if (i % 8 == 0)
+                    j += 1;
+                if (boolPixels[i])
+                    byteArray[j] |= (byte)(1 << 7 - (i % 8));
+                //byteArray[j] |= (byte)(1 << (i % 8));
+            }
+            return byteArray;
+        }
+
+        private byte[] GetCompressedChunk(byte[] byteArray, int chunk)
+        {
+            var compressedBytes = new List<byte>();
+
+            for (var idx = 0; idx < arduinoBufferSize; idx += 1)
+            {
+                var runValue = byteArray[chunk * arduinoBufferSize + idx];
+                if (runValue != 0 && runValue != 255)
+                {
+                    compressedBytes.Add(runValue);
+                    continue;
+                }
+
+                // only compress 0x00 and 0xFF
+                var runLength = (byte)0;
+                while (idx < arduinoBufferSize && runLength < 255 && byteArray[chunk * arduinoBufferSize + idx] == runValue)
+                {
+                    idx += 1;
+                    runLength += 1;
+                }
+                idx -= 1;
+                compressedBytes.Add(runValue);
+                compressedBytes.Add(runLength);
+            }
+            return compressedBytes.ToArray();
+        }
+        
+        private bool SendChunkToPrinter(byte[] compressedBytes, int chunk)
+        {
+            Log.Info("Printer", $"Chunk {chunk} compressed size: {compressedBytes.Length}. Compression ratio: {100.0 * compressedBytes.Count() / arduinoBufferSize * 8.0}");
+            socket.OutputStream.Write(compressedBytes, 0, compressedBytes.Length);
+
+            var startWait = DateTime.UtcNow;
+            var timeout = TimeSpan.FromSeconds(3);
+            while (!socket.InputStream.IsDataAvailable() && DateTime.UtcNow - startWait < timeout)
+            { } // wait for printer to print the row
+            if (DateTime.UtcNow - startWait >= timeout)
+            {
+                throw new IOException("Arduino not responding!");
+            }
+            var b = socket.InputStream.ReadByte();
+            if (b == 5)
+            {
+                Log.Info("Printer", $"Chunk {chunk} printed");
+            }
+
+            return b == 6; // pritner says a full image was just printed
         }
 	}
 }
