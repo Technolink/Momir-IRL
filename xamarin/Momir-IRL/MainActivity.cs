@@ -98,7 +98,7 @@ namespace Momir_IRL
                 {
                     statusLabel.Text = "Fetching card from Scryfall...";
                     var (bmp, monoBmp) = await GetImages(cmc ?? (int)cmcDropdown.SelectedItem);
-                    imageView.SetImageBitmap(monoBmp);
+                    imageView.SetImageBitmap(bmp);
 
                     SendToPrinter(monoBmp).ConfigureAwait(false);
                     success = true;
@@ -140,7 +140,7 @@ namespace Momir_IRL
             }
         }
 
-        const int arduinoBufferSize = 384 * 32 / 8;
+        const int arduinoBufferSize = 384 * 34 / 8;
         private async Task SendToPrinter(Bitmap bmp)
         {
             statusLabel.Text = "Sending to printer...";
@@ -207,7 +207,7 @@ namespace Momir_IRL
                     }
                 }
 
-                Log.Info("Printer", $"Chunk {i} compressed size: {compressedBytes.Count()}. Compression ratio: {100.0 * compressedBytes.Count() / (double)arduinoBufferSize}");
+                Log.Info("Printer", $"Chunk {i} compressed size: {compressedBytes.Count()}. Compression ratio: {100.0 * compressedBytes.Count() / arduinoBufferSize*8.0}");
                 socket.OutputStream.Write(compressedBytes.ToArray(), 0, compressedBytes.Count);
 
                 var startWait = DateTime.UtcNow;
