@@ -39,8 +39,14 @@ void setup() {
 }
 
 void loop() {
-  byte d, len;
+  if (Serial.available()) {
+    Printer.printBitmap(monochrome_width, buffer_height, &Serial);
+    Serial.write(5); // let the program know we're ready
+  }
+}
 
+void loopChunks() {
+  byte d, len;
   while (Serial.available()) {
     d = Serial.read();
     if (d != 0 && d != 255) {

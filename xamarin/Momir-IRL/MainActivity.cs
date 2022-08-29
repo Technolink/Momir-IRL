@@ -163,6 +163,9 @@ namespace Momir_IRL
                     //byteArray[j] |= (byte)(1 << (i % 8));
             }
 
+            socket.OutputStream.Write(byteArray, 0, byteArray.Length);
+            statusLabel.Text = "Select CMC and hit send!";
+            return;
 
             for (var i = 0; i < byteArray.Length / arduinoBufferSize; i++)
             {
@@ -206,9 +209,14 @@ namespace Momir_IRL
                         idx += 1;
                     }
                 }
+                if (uncompressedBytes.Count != arduinoBufferSize)
+                {
+                    Log.Error("Printer", "More uncompressed bytes than fits in the buffer!");
+                }
 
                 Log.Info("Printer", $"Chunk {i} compressed size: {compressedBytes.Count()}. Compression ratio: {100.0 * compressedBytes.Count() / (double)arduinoBufferSize}");
-                socket.OutputStream.Write(compressedBytes.ToArray(), 0, compressedBytes.Count);
+                //socket.OutputStream.Write(compressedBytes.ToArray(), 0, compressedBytes.Count);
+                socket.OutputStream.Write(byteArray, i*arduinoBufferSize, arduinoBufferSize);
 
                 var startWait = DateTime.UtcNow;
                 var timeout = TimeSpan.FromSeconds(3);
