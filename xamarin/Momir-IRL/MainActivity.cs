@@ -5,7 +5,6 @@ using Android.OS;
 using Android.Runtime;
 using Android.Views;
 using AndroidX.AppCompat.App;
-using Google.Android.Material.FloatingActionButton;
 using System.Threading.Tasks;
 using System.IO;
 using Android.Widget;
@@ -20,8 +19,7 @@ namespace Momir_IRL
     public class MainActivity : AppCompatActivity
     {
         private ImageView _imageView;
-        private Spinner _cmcDropdown;
-        private Button _button;
+        private ImageButton _button1;
         private BluetoothSocket _socket;
         private volatile bool _printing = false;
         private readonly object _syncRoot = new object();
@@ -38,14 +36,13 @@ namespace Momir_IRL
             //var toolbar = FindViewById<Toolbar>(Resource.Id.toolbar);
             //SetSupportActionBar(toolbar);
 
-            var cmcs = Enumerable.Range(1, 16).Where(i => Assets.List($"monochrome/{i}").Any());
+            var cmcs = Enumerable.Range(1, 20).Where(i => Assets.List($"monochrome/{i}").Any());
 
             _imageView = FindViewById<ImageView>(Resource.Id.card);
-            _cmcDropdown = FindViewById<Spinner>(Resource.Id.cmc);
-            _cmcDropdown.Adapter = new ArrayAdapter(this, Android.Resource.Layout.SimpleSpinnerDropDownItem, cmcs.ToArray());
 
-            _button = FindViewById<Button>(Resource.Id.button);
-            _button.Click += ButtonOnClick;
+            _button1 = FindViewById<ImageButton>(Resource.Id.button_1);
+            _button1.Click += ButtonOnClick;
+            _button1.SetImageBitmap(await BitmapFactory.DecodeStreamAsync(Assets.Open("mana/1.png")));
         }
 
         public override bool OnCreateOptionsMenu(IMenu menu)
@@ -67,14 +64,16 @@ namespace Momir_IRL
 
         private async void ButtonOnClick(object sender, EventArgs eventArgs)
         {
-            await PopulateImage();
+            var button = sender as ImageButton;
+            var cmc = button.Id == _button1.Id ? 1 : 2; // TODO: Fix when we support multiple buttons
+            await PopulateImage(cmc);
         }
 
-        private async Task PopulateImage(int? cmc = null)
+        private async Task PopulateImage(int cmc )
         {
             try
             {
-                var (bmp, monoBmp) = await GetImages(cmc ?? (int)_cmcDropdown.SelectedItem);
+                var (bmp, monoBmp) = await GetImages(cmc);
                 _imageView.SetImageBitmap(bmp);
                 _imageView.Invalidate();
 
@@ -95,7 +94,7 @@ namespace Momir_IRL
                     return;
                 }
                 _printing = true;
-                _button.Enabled = false;
+                _button1.Enabled = false;
             }
             try
             {
@@ -112,7 +111,7 @@ namespace Momir_IRL
                 lock (_syncRoot)
                 {
                     _printing = false;
-                    _button.Enabled = true;
+                    _button1.Enabled = true;
                 }
             }
         }

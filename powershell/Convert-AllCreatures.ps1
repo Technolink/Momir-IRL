@@ -1,5 +1,5 @@
-0..16 | ? {-not (Test-Path "xamarin/Momir-IRL/Assets/original/$_")} | % {mkdir "xamarin/Momir-IRL/Assets/original/$_" | Out-Null }
-0..16 | ? {-not (Test-Path "xamarin/Momir-IRL/Assets/monochrome/$_")} | % {mkdir "xamarin/Momir-IRL/Assets/monochrome/$_" | Out-Null }
+0..20 | ? {-not (Test-Path "xamarin/Momir-IRL/Assets/original/$_")} | % {mkdir "xamarin/Momir-IRL/Assets/original/$_" | Out-Null }
+0..20 | ? {-not (Test-Path "xamarin/Momir-IRL/Assets/monochrome/$_")} | % {mkdir "xamarin/Momir-IRL/Assets/monochrome/$_" | Out-Null }
 
 $url = "https://api.scryfall.com/bulk-data"
 $response = Invoke-RestMethod $url

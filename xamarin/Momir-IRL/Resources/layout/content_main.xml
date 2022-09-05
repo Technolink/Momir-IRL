@@ -4,16 +4,33 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@android:color/background_dark"
     app:layout_behavior="@string/appbar_scrolling_view_behavior"
     tools:showIn="@layout/activity_main">
     <ImageView
         android:id="@+id/card"
-        android:scaleType="fitXY"
+        android:scaleType="centerCrop"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_above="@+id/cmc"
+        android:layout_above="@+id/button_carousel"
         android:layout_centerInParent="true"/>
-    <TextView
+
+    <LinearLayout
+        android:id="@+id/button_carousel"
+        android:layout_alignParentBottom="true"
+        android:layout_margin="5dp"
+        android:layout_width="wrap_content"
+        android:layout_height="100dp">
+        <ImageButton
+            android:id="@+id/button_1"
+            android:layout_width="100dp"
+            android:layout_height="100dp"
+            android:scaleType="centerCrop"
+            android:background="@null"
+            android:text="1" />
+    </LinearLayout>
+
+    <!-- TextView
         android:id="@+id/cmc_label"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -36,16 +53,6 @@
         android:layout_margin="5dp"
         android:layout_alignParentRight="true"
         android:layout_alignParentBottom="true"
-        android:text="Print" />
-
-    <!-- com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fab"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="@dimen/fab_margin"
-        android:layout_alignParentRight="true"
-        android:layout_alignParentBottom="true"
-        app:srcCompat="@android:drawable/ic_menu_send" /-->
+        android:text="Print" /-->
 
 </RelativeLayout>
