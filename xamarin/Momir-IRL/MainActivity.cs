@@ -9,7 +9,6 @@ using Google.Android.Material.FloatingActionButton;
 using System.Threading.Tasks;
 using System.IO;
 using Android.Widget;
-using Toolbar = AndroidX.AppCompat.Widget.Toolbar;
 using Android.Graphics;
 using Android.Util;
 using System.Linq;
@@ -20,13 +19,13 @@ namespace Momir_IRL
     [Activity(Label = "@string/app_name", Theme = "@style/AppTheme.NoActionBar", MainLauncher = true)]
     public class MainActivity : AppCompatActivity
     {
-        private const string ScryfallUrl = "https://api.scryfall.com/cards/random?q=type:creature+cmc:{0}";
-        private ImageView imageView;
-        private Spinner cmcDropdown;
-        private BluetoothSocket socket;
-        private TextView statusLabel;
-        private volatile bool printing = false;
-        private readonly object syncRoot = new object();
+        private ImageView _imageView;
+        private Spinner _cmcDropdown;
+        private Button _button;
+        private BluetoothSocket _socket;
+        private volatile bool _printing = false;
+        private readonly object _syncRoot = new object();
+        private const int ArduinoBufferSize = 384 * 34 / 8;
 
         protected async override void OnCreate(Bundle savedInstanceState)
         {
@@ -34,23 +33,19 @@ namespace Momir_IRL
             Xamarin.Essentials.Platform.Init(this, savedInstanceState);
             SetContentView(Resource.Layout.activity_main);
 
-            statusLabel = FindViewById<TextView>(Resource.Id.status_label);
-            statusLabel.Text = "Connecting to Bluetooth...";
             await ConnectToBluetooth();
 
-            var toolbar = FindViewById<Toolbar>(Resource.Id.toolbar);
-            SetSupportActionBar(toolbar);
+            //var toolbar = FindViewById<Toolbar>(Resource.Id.toolbar);
+            //SetSupportActionBar(toolbar);
 
             var cmcs = Enumerable.Range(1, 16).Where(i => Assets.List($"monochrome/{i}").Any());
 
-            imageView = FindViewById<ImageView>(Resource.Id.card);
-            cmcDropdown = FindViewById<Spinner>(Resource.Id.cmc);
-            cmcDropdown.Adapter = new ArrayAdapter(this, Android.Resource.Layout.SimpleSpinnerDropDownItem, cmcs.ToArray());
+            _imageView = FindViewById<ImageView>(Resource.Id.card);
+            _cmcDropdown = FindViewById<Spinner>(Resource.Id.cmc);
+            _cmcDropdown.Adapter = new ArrayAdapter(this, Android.Resource.Layout.SimpleSpinnerDropDownItem, cmcs.ToArray());
 
-            var fab = FindViewById<FloatingActionButton>(Resource.Id.fab);
-            fab.Click += FabOnClick;
-
-            statusLabel.Text = "Select CMC and hit send!";
+            _button = FindViewById<Button>(Resource.Id.button);
+            _button.Click += ButtonOnClick;
         }
 
         public override bool OnCreateOptionsMenu(IMenu menu)
@@ -70,34 +65,115 @@ namespace Momir_IRL
             return base.OnOptionsItemSelected(item);
         }
 
-        private async void FabOnClick(object sender, EventArgs eventArgs)
+        private async void ButtonOnClick(object sender, EventArgs eventArgs)
         {
             await PopulateImage();
         }
 
         private async Task PopulateImage(int? cmc = null)
         {
-            var success = false;
-            for (var i = 0; !success && i < 5; i++)
+            try
             {
-                try
-                {
-                    statusLabel.Text = "Fetching card from Scryfall...";
-                    var (bmp, monoBmp) = await GetImages(cmc ?? (int)cmcDropdown.SelectedItem);
-                    imageView.SetImageBitmap(bmp);
-                    imageView.Invalidate();
+                var (bmp, monoBmp) = await GetImages(cmc ?? (int)_cmcDropdown.SelectedItem);
+                _imageView.SetImageBitmap(bmp);
+                _imageView.Invalidate();
 
-                    SendToPrinter(monoBmp).ConfigureAwait(false);
-                    success = true;
-                }
-                catch (Exception e)
+                SendToPrinter(monoBmp).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                Log.Error("Printer", e.ToString());
+            }
+        }
+
+        private async Task SendToPrinter(Bitmap bmp)
+        {
+            lock (_syncRoot)
+            {
+                if (_printing)
                 {
-                    Log.Error("Printer", e.ToString());
+                    return;
+                }
+                _printing = true;
+                _button.Enabled = false;
+            }
+            try
+            {
+                var byteArray = GetBytesFromImage(bmp);
+
+                for (var i = 0; i < byteArray.Length / ArduinoBufferSize; i++)
+                {
+                    var compressedBytes = GetCompressedChunk(byteArray, i);
+                    await SendChunkToPrinterAsync(compressedBytes, i);
                 }
             }
-            if (!success)
+            finally
             {
-                Toast.MakeText(this, "Error getting image after 5 retries", ToastLength.Short);
+                lock (_syncRoot)
+                {
+                    _printing = false;
+                    _button.Enabled = true;
+                }
+            }
+        }
+
+        private async Task<bool> SendChunkToPrinterAsync(byte[] compressedBytes, int chunk)
+        {
+            Log.Info("Printer", $"Chunk {chunk} compressed size: {compressedBytes.Length}. Compression ratio: {100.0 * compressedBytes.Count() / ArduinoBufferSize * 8.0}");
+            for (var retry = 0; retry < 3; retry++)
+            {
+                await _socket.OutputStream.WriteAsync(compressedBytes, 0, compressedBytes.Length);
+
+                var startWait = DateTime.UtcNow;
+                var timeout = TimeSpan.FromSeconds(3);
+                while (!_socket.InputStream.IsDataAvailable() && DateTime.UtcNow - startWait < timeout)
+                { await Task.Delay(1); } // wait for printer to print the row
+
+                if (_socket.InputStream.IsDataAvailable())
+                {
+                    break;
+                }
+                else
+                {
+                    Log.Error("Printer", $"Chunk {chunk} failed to send, Arduino not responding");
+                    if (retry == 2)
+                    {
+                        throw new IOException("Arduino not responding!");
+                    }
+                    else
+                    {
+                        //await ConnectToBluetooth();
+                    }
+                }
+            }
+
+            var b = _socket.InputStream.ReadByte();
+            if (b == 5)
+            {
+                Log.Info("Printer", $"Chunk {chunk} printed");
+            }
+
+            return b == 6; // pritner says a full image was just printed
+        }
+
+        public override void OnRequestPermissionsResult(int requestCode, string[] permissions, [GeneratedEnum] Android.Content.PM.Permission[] grantResults)
+        {
+            Xamarin.Essentials.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);
+
+            base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
+        }
+
+        private async Task ConnectToBluetooth()
+        {
+            try
+            {
+                var device = BluetoothAdapter.DefaultAdapter.BondedDevices.First(d => d.Name.Contains("HC-05"));
+                _socket = device.CreateInsecureRfcommSocketToServiceRecord(Java.Util.UUID.FromString("00001101-0000-1000-8000-00805f9b34fb"));
+                await _socket.ConnectAsync();
+            }
+            catch (Exception e)
+            {
+                Log.Error("Printer", "Could not connect to Bluetooth " + e.ToString());
             }
         }
 
@@ -113,61 +189,6 @@ namespace Momir_IRL
             var monoBmpTask = BitmapFactory.DecodeStreamAsync(monoStream);
             await Task.WhenAll(origialBmpTask, monoBmpTask);
             return (await origialBmpTask, await monoBmpTask);
-        }
-
-        const int arduinoBufferSize = 384 * 34 / 8;
-        private async Task SendToPrinter(Bitmap bmp)
-        {
-            lock (syncRoot)
-            {
-                if (printing)
-                {
-                    //return;
-                }
-                printing = true;
-            }
-            try
-            {
-                statusLabel.Text = "Sending to printer...";
-
-                var byteArray = GetBytesFromImage(bmp);
-
-                for (var i = 0; i < byteArray.Length / arduinoBufferSize; i++)
-                {
-                    var compressedBytes = GetCompressedChunk(byteArray, i);
-                    SendChunkToPrinter(compressedBytes, i);
-                }
-            }
-            finally
-            {
-                lock (syncRoot)
-                {
-                    printing = false;
-                }
-                statusLabel.Text = "Select CMC and hit send!";
-            }
-        }
-
-        public override void OnRequestPermissionsResult(int requestCode, string[] permissions, [GeneratedEnum] Android.Content.PM.Permission[] grantResults)
-        {
-            Xamarin.Essentials.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);
-
-            base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
-        }
-
-        private async Task ConnectToBluetooth()
-        {
-            try
-            {
-                var device = BluetoothAdapter.DefaultAdapter.BondedDevices.First(d => d.Name.Contains("HC-05"));
-                socket = device.CreateInsecureRfcommSocketToServiceRecord(Java.Util.UUID.FromString("00001101-0000-1000-8000-00805f9b34fb"));
-                await socket.ConnectAsync();
-            }
-            catch (Exception e)
-            {
-                Log.Error("Bluetooth Connect", e.ToString());
-                statusLabel.Text = "Could not connect to Bluetooth";
-            }
         }
 
         private byte[] GetBytesFromImage(Bitmap bmp)
@@ -196,9 +217,9 @@ namespace Momir_IRL
         {
             var compressedBytes = new List<byte>();
 
-            for (var idx = 0; idx < arduinoBufferSize; idx += 1)
+            for (var idx = 0; idx < ArduinoBufferSize; idx += 1)
             {
-                var runValue = byteArray[chunk * arduinoBufferSize + idx];
+                var runValue = byteArray[chunk * ArduinoBufferSize + idx];
                 if (runValue != 0 && runValue != 255)
                 {
                     compressedBytes.Add(runValue);
@@ -207,7 +228,7 @@ namespace Momir_IRL
 
                 // only compress 0x00 and 0xFF
                 var runLength = (byte)0;
-                while (idx < arduinoBufferSize && runLength < 255 && byteArray[chunk * arduinoBufferSize + idx] == runValue)
+                while (idx < ArduinoBufferSize && runLength < 255 && byteArray[chunk * ArduinoBufferSize + idx] == runValue)
                 {
                     idx += 1;
                     runLength += 1;
@@ -217,28 +238,6 @@ namespace Momir_IRL
                 compressedBytes.Add(runLength);
             }
             return compressedBytes.ToArray();
-        }
-        
-        private bool SendChunkToPrinter(byte[] compressedBytes, int chunk)
-        {
-            Log.Info("Printer", $"Chunk {chunk} compressed size: {compressedBytes.Length}. Compression ratio: {100.0 * compressedBytes.Count() / arduinoBufferSize * 8.0}");
-            socket.OutputStream.Write(compressedBytes, 0, compressedBytes.Length);
-
-            var startWait = DateTime.UtcNow;
-            var timeout = TimeSpan.FromSeconds(3);
-            while (!socket.InputStream.IsDataAvailable() && DateTime.UtcNow - startWait < timeout)
-            { } // wait for printer to print the row
-            if (DateTime.UtcNow - startWait >= timeout)
-            {
-                throw new IOException("Arduino not responding!");
-            }
-            var b = socket.InputStream.ReadByte();
-            if (b == 5)
-            {
-                Log.Info("Printer", $"Chunk {chunk} printed");
-            }
-
-            return b == 6; // pritner says a full image was just printed
         }
 	}
 }
