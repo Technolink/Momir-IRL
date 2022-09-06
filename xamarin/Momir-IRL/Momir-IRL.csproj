@@ -109,7 +109,7 @@
     <Folder Include="Resources\drawable\" />
   </ItemGroup>
   <ItemGroup>
-    <AndroidAsset Include="Assets\**\*" />
+    <AndroidAsset Include="Assets\$(Configuration)\**\*" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="ScryfallAPI.Client">

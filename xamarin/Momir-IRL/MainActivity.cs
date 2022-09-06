@@ -19,11 +19,16 @@ namespace Momir_IRL
     public class MainActivity : AppCompatActivity
     {
         private ImageView _imageView;
-        private ImageButton _button1;
+        private List<ImageButton> _buttons = new List<ImageButton>();
         private BluetoothSocket _socket;
         private volatile bool _printing = false;
         private readonly object _syncRoot = new object();
         private const int ArduinoBufferSize = 384 * 34 / 8;
+#if DEBUG
+        private const string Folder = "Debug";
+#else
+        private const string Folder = "Release";
+#endif
 
         protected async override void OnCreate(Bundle savedInstanceState)
         {
@@ -36,13 +41,37 @@ namespace Momir_IRL
             //var toolbar = FindViewById<Toolbar>(Resource.Id.toolbar);
             //SetSupportActionBar(toolbar);
 
-            var cmcs = Enumerable.Range(1, 20).Where(i => Assets.List($"monochrome/{i}").Any());
+            var cmcs = Enumerable.Range(1, 20).Where(i => Assets.List($"{Folder}/monochrome/{i}").Any());
 
             _imageView = FindViewById<ImageView>(Resource.Id.card);
 
-            _button1 = FindViewById<ImageButton>(Resource.Id.button_1);
-            _button1.Click += ButtonOnClick;
-            _button1.SetImageBitmap(await BitmapFactory.DecodeStreamAsync(Assets.Open("mana/1.png")));
+            var button1 = FindViewById<ImageButton>(Resource.Id.button_1);
+            button1.Click += ButtonOnClick;
+            button1.SetImageBitmap(await BitmapFactory.DecodeStreamAsync(Assets.Open($"{Folder}/mana/1.png")));
+            _buttons.Add(new ImageButton(this)); // never a button for mana value 0
+            _buttons.Add(button1);
+            
+            var lastButton = button1;
+            foreach (var cmc in cmcs.Skip(1))
+            {
+                var layoutParams = new RelativeLayout.LayoutParams(button1.LayoutParameters.Width, button1.LayoutParameters.Height);
+                layoutParams.AddRule(LayoutRules.AlignLeft, lastButton.Id);
+                var button = new ImageButton(this)
+                {
+                    Id = View.GenerateViewId(),
+                    Background = null,
+                    LayoutParameters = layoutParams,
+                    ContentDescription = cmc.ToString(),
+                };
+                button.SetScaleType(ImageView.ScaleType.CenterCrop);
+                button.SetImageBitmap(await BitmapFactory.DecodeStreamAsync(Assets.Open($"{Folder}/mana/{cmc}.png")));
+                button.Click += ButtonOnClick;
+
+                (button1.Parent as LinearLayout).AddView(button);
+                _buttons.Add(button);
+                lastButton = button;
+            }
+
         }
 
         public override bool OnCreateOptionsMenu(IMenu menu)
@@ -65,7 +94,7 @@ namespace Momir_IRL
         private async void ButtonOnClick(object sender, EventArgs eventArgs)
         {
             var button = sender as ImageButton;
-            var cmc = button.Id == _button1.Id ? 1 : 2; // TODO: Fix when we support multiple buttons
+            var cmc = _buttons.FindIndex(b => b.Id == button.Id);
             await PopulateImage(cmc);
         }
 
@@ -77,7 +106,9 @@ namespace Momir_IRL
                 _imageView.SetImageBitmap(bmp);
                 _imageView.Invalidate();
 
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
                 SendToPrinter(monoBmp).ConfigureAwait(false);
+#pragma warning restore CS4014
             }
             catch (Exception e)
             {
@@ -94,7 +125,7 @@ namespace Momir_IRL
                     return;
                 }
                 _printing = true;
-                _button1.Enabled = false;
+                _buttons.ForEach(b => b.Enabled = false);
             }
             try
             {
@@ -111,7 +142,7 @@ namespace Momir_IRL
                 lock (_syncRoot)
                 {
                     _printing = false;
-                    _button1.Enabled = true;
+                    _buttons.ForEach(b => b.Enabled = true);
                 }
             }
         }
@@ -178,11 +209,11 @@ namespace Momir_IRL
 
         private async Task<(Bitmap, Bitmap)> GetImages(int cmc = 1)
         {
-            var cards = await Assets.ListAsync($"original/{cmc}");
+            var cards = await Assets.ListAsync($"{Folder}/original/{cmc}");
             var card = cards[new Random().Next(0, cards.Length - 1)];
 
-            var origialStream = Assets.Open($"original/{cmc}/{card}");
-            var monoStream = Assets.Open($"monochrome/{cmc}/{card}");
+            var origialStream = Assets.Open($"{Folder}/original/{cmc}/{card}");
+            var monoStream = Assets.Open($"{Folder}/monochrome/{cmc}/{card}");
 
             var origialBmpTask = BitmapFactory.DecodeStreamAsync(origialStream);
             var monoBmpTask = BitmapFactory.DecodeStreamAsync(monoStream);

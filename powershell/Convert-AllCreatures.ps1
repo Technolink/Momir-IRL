@@ -1,5 +1,7 @@
-0..20 | ? {-not (Test-Path "xamarin/Momir-IRL/Assets/original/$_")} | % {mkdir "xamarin/Momir-IRL/Assets/original/$_" | Out-Null }
-0..20 | ? {-not (Test-Path "xamarin/Momir-IRL/Assets/monochrome/$_")} | % {mkdir "xamarin/Momir-IRL/Assets/monochrome/$_" | Out-Null }
+0..20 | ? {-not (Test-Path "xamarin/Momir-IRL/Assets/debug/original/$_")} | % {mkdir "xamarin/Momir-IRL/Assets/debug/original/$_" | Out-Null }
+0..20 | ? {-not (Test-Path "xamarin/Momir-IRL/Assets/debug/monochrome/$_")} | % {mkdir "xamarin/Momir-IRL/Assets/debug/monochrome/$_" | Out-Null }
+0..20 | ? {-not (Test-Path "xamarin/Momir-IRL/Assets/release/original/$_")} | % {mkdir "xamarin/Momir-IRL/Assets/release/original/$_" | Out-Null }
+0..20 | ? {-not (Test-Path "xamarin/Momir-IRL/Assets/release/monochrome/$_")} | % {mkdir "xamarin/Momir-IRL/Assets/release/monochrome/$_" | Out-Null }
 
 $url = "https://api.scryfall.com/bulk-data"
 $response = Invoke-RestMethod $url
@@ -19,10 +21,10 @@ foreach ($creature in $creatures) {
 		continue
 	}
 	
-	$path = "xamarin/Momir-IRL/Assets/original/$([int]$creature.cmc)/$($creature.id).bmp"
-	$target = "xamarin/Momir-IRL/Assets/monochrome/$([int]$creature.cmc)/$($creature.id).bmp"
+	$path = "xamarin/Momir-IRL/Assets/release/original/$([int]$creature.cmc)/$($creature.id).bmp"
+	$target = "xamarin/Momir-IRL/Assets/release/monochrome/$([int]$creature.cmc)/$($creature.id).bmp"
 	
-	if ($creature.layout -eq "token" -or $creature.layout -eq "augment" -or ((Test-Path $path) -and (Test-Path $target))) {
+	if ($creature.layout -eq "token" -or $creature.layout -eq "augment") {
 		continue
 	}
 	
@@ -30,5 +32,16 @@ foreach ($creature in $creatures) {
 		# download image
 		Invoke-RestMethod $creature.image_uris.border_crop -OutFile $path
 	}
-	magick convert $path -resize 80% -monochrome $target
+	
+	if (-not (Test-Path $target)) {
+		# convert image
+		magick convert $path -resize 80% -monochrome $target
+	}
+	
+	$debugPath = "xamarin/Momir-IRL/Assets/debug/original/$([int]$creature.cmc)/$($creature.id).bmp"
+	$debugTarget = "xamarin/Momir-IRL/Assets/debug/monochrome/$([int]$creature.cmc)/$($creature.id).bmp"
+	if ((ls "xamarin/Momir-IRL/Assets/debug/original/$([int]$creature.cmc)").Count -lt 10) {
+		Copy-Item $path $debugPath
+		Copy-Item $target $debugTarget
+	}
 }
