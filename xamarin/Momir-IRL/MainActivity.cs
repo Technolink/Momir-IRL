@@ -22,6 +22,7 @@ namespace Momir_IRL
         private ImageView _imageView;
         private readonly List<ImageButton> _buttons = new List<ImageButton>();
         private readonly List<(Bitmap enabled, Bitmap disabled)> _manaImages = new List<(Bitmap, Bitmap)>();
+        private readonly List<string[]> _cards = new List<string[]>();
 
         private volatile bool _printing = false;
         private readonly object _syncRoot = new object();
@@ -42,7 +43,11 @@ namespace Momir_IRL
 
             await ConnectToBluetooth();
 
-            var cmcs = Enumerable.Range(1, 20).Where(i => Assets.List($"{Folder}/monochrome/{i}").Any());
+            foreach (var i in Enumerable.Range(0, 20))
+            {
+                _cards.Add(Assets.List($"{Folder}/monochrome/{i}"));
+            }
+            var cmcs = Enumerable.Range(1, 19).Where(i => _cards[i].Any());
             _imageView = FindViewById<ImageView>(Resource.Id.card);
             await LoadManaButtons(cmcs);
         }
@@ -233,8 +238,7 @@ namespace Momir_IRL
 
         private async Task<(Bitmap, Bitmap)> GetImages(int cmc = 1)
         {
-            var cards = await Assets.ListAsync($"{Folder}/original/{cmc}");
-            var card = cards[new Random().Next(0, cards.Length - 1)];
+            var card = _cards[cmc][new Random().Next(0, _cards[cmc].Length - 1)];
 
             var origialStream = Assets.Open($"{Folder}/original/{cmc}/{card}");
             var monoStream = Assets.Open($"{Folder}/monochrome/{cmc}/{card}");
