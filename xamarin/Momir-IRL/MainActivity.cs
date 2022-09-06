@@ -78,7 +78,7 @@ namespace Momir_IRL
         private async void ButtonOnClick(object sender, EventArgs eventArgs)
         {
             var button = sender as ImageButton;
-            var cmc = _buttons.FindIndex(b => b.Id == button.Id) + 1;
+            var cmc = int.Parse(_buttons.First(b => b.Id == button.Id).ContentDescription);
             await PopulateImage(cmc);
         }
 
@@ -113,7 +113,7 @@ namespace Momir_IRL
                 {
                     b.Enabled = false;
                     b.SetImageBitmap(i.disabled);
-                    return true;
+                    return false;
                 }).ToList(); // force evaluation
             }
             try
@@ -135,7 +135,7 @@ namespace Momir_IRL
                     {
                         b.Enabled = true;
                         b.SetImageBitmap(i.enabled);
-                        return false;
+                        return true;
                     }).ToList(); // force evaluation
                 }
             }

@@ -7,6 +7,7 @@
     android:background="?android:attr/colorBackground"
     app:layout_behavior="@string/appbar_scrolling_view_behavior"
     tools:showIn="@layout/activity_main">
+
     <ImageView
         android:id="@+id/card"
         android:scaleType="centerCrop"
@@ -14,6 +15,7 @@
         android:layout_height="match_parent"
         android:layout_above="@+id/scroller"
         android:layout_centerInParent="true"
+        android:src="@drawable/momir_vig"
         android:contentDescription="card" />
 
     <HorizontalScrollView
@@ -28,30 +30,5 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal" />
     </HorizontalScrollView>
-
-    <!-- TextView
-        android:id="@+id/cmc_label"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_margin="5dp"
-        android:layout_alignParentBottom="true"
-        android:textSize="40dp"
-        android:text="CMC:"/>
-    <Spinner
-        android:id="@+id/cmc"
-        android:layout_width="100dp"
-        android:layout_height="50dp"
-        android:layout_alignParentBottom="true"
-        android:layout_margin="5dp"
-        android:textSize="64dp"
-        android:layout_toRightOf="@+id/cmc_label"/>
-    <Button
-        android:id="@+id/button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_margin="5dp"
-        android:layout_alignParentRight="true"
-        android:layout_alignParentBottom="true"
-        android:text="Print" /-->
 
 </RelativeLayout>

@@ -49,7 +49,6 @@ powershell/Convert-AllCreatures.ps1
 
 
 Backlog:
-* Default card with instructions (Momir Vig?)
 ^^^^^MVP^^^^^
 * Token search and print
 * Token auto-complete
