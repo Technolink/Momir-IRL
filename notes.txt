@@ -49,10 +49,9 @@ powershell/Convert-AllCreatures.ps1
 
 
 Backlog:
-* Mana selector
-* Button disable for mana
+* Default card with instructions (Momir Vig?)
+^^^^^MVP^^^^^
 * Token search and print
------MVP-----
 * Token auto-complete
 * Creature carosel
 * Android app printing animation (synced in 1/16th increments)

@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/background_dark"
+    android:background="?android:attr/colorBackground"
     app:layout_behavior="@string/appbar_scrolling_view_behavior"
     tools:showIn="@layout/activity_main">
     <ImageView
@@ -12,24 +12,22 @@
         android:scaleType="centerCrop"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_above="@+id/button_carousel"
+        android:layout_above="@+id/scroller"
         android:layout_centerInParent="true"
         android:contentDescription="card" />
 
-    <LinearLayout
-        android:id="@+id/button_carousel"
-        android:layout_alignParentBottom="true"
-        android:layout_margin="5dp"
+    <HorizontalScrollView
+        android:id="@+id/scroller"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content">
-        <ImageButton
-            android:id="@+id/button_1"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:scaleType="centerCrop"
-            android:background="@null"
-            android:contentDescription="1" />
-    </LinearLayout>
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        >
+        <LinearLayout
+            android:id="@+id/button_carousel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" />
+    </HorizontalScrollView>
 
     <!-- TextView
         android:id="@+id/cmc_label"

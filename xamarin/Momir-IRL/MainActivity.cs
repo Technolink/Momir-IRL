@@ -12,6 +12,7 @@ using Android.Graphics;
 using Android.Util;
 using System.Linq;
 using System.Collections.Generic;
+using Android.Content;
 
 namespace Momir_IRL
 {
@@ -19,10 +20,13 @@ namespace Momir_IRL
     public class MainActivity : AppCompatActivity
     {
         private ImageView _imageView;
-        private List<ImageButton> _buttons = new List<ImageButton>();
-        private BluetoothSocket _socket;
+        private readonly List<ImageButton> _buttons = new List<ImageButton>();
+        private readonly List<(Bitmap enabled, Bitmap disabled)> _manaImages = new List<(Bitmap, Bitmap)>();
+
         private volatile bool _printing = false;
         private readonly object _syncRoot = new object();
+
+        private BluetoothSocket _socket;
         private const int ArduinoBufferSize = 384 * 34 / 8;
 #if DEBUG
         private const string Folder = "Debug";
@@ -38,41 +42,21 @@ namespace Momir_IRL
 
             await ConnectToBluetooth();
 
-            //var toolbar = FindViewById<Toolbar>(Resource.Id.toolbar);
-            //SetSupportActionBar(toolbar);
-
             var cmcs = Enumerable.Range(1, 20).Where(i => Assets.List($"{Folder}/monochrome/{i}").Any());
-
             _imageView = FindViewById<ImageView>(Resource.Id.card);
-
-            var button1 = FindViewById<ImageButton>(Resource.Id.button_1);
-            button1.Click += ButtonOnClick;
-            button1.SetImageBitmap(await BitmapFactory.DecodeStreamAsync(Assets.Open($"{Folder}/mana/1.png")));
-            _buttons.Add(new ImageButton(this)); // never a button for mana value 0
-            _buttons.Add(button1);
-            
-            var lastButton = button1;
-            foreach (var cmc in cmcs.Skip(1))
-            {
-                var layoutParams = new RelativeLayout.LayoutParams(button1.LayoutParameters.Width, button1.LayoutParameters.Height);
-                layoutParams.AddRule(LayoutRules.AlignLeft, lastButton.Id);
-                var button = new ImageButton(this)
-                {
-                    Id = View.GenerateViewId(),
-                    Background = null,
-                    LayoutParameters = layoutParams,
-                    ContentDescription = cmc.ToString(),
-                };
-                button.SetScaleType(ImageView.ScaleType.CenterCrop);
-                button.SetImageBitmap(await BitmapFactory.DecodeStreamAsync(Assets.Open($"{Folder}/mana/{cmc}.png")));
-                button.Click += ButtonOnClick;
-
-                (button1.Parent as LinearLayout).AddView(button);
-                _buttons.Add(button);
-                lastButton = button;
-            }
-
+            await LoadManaButtons(cmcs);
         }
+
+        protected override void OnDestroy()
+        {
+            if (_socket != null)
+            {
+                _socket.Dispose();
+                _socket = null;
+            }
+            base.OnDestroy();
+        }
+
 
         public override bool OnCreateOptionsMenu(IMenu menu)
         {
@@ -94,7 +78,7 @@ namespace Momir_IRL
         private async void ButtonOnClick(object sender, EventArgs eventArgs)
         {
             var button = sender as ImageButton;
-            var cmc = _buttons.FindIndex(b => b.Id == button.Id);
+            var cmc = _buttons.FindIndex(b => b.Id == button.Id) + 1;
             await PopulateImage(cmc);
         }
 
@@ -125,7 +109,12 @@ namespace Momir_IRL
                     return;
                 }
                 _printing = true;
-                _buttons.ForEach(b => b.Enabled = false);
+                _buttons.Zip(_manaImages, (b, i) =>
+                {
+                    b.Enabled = false;
+                    b.SetImageBitmap(i.disabled);
+                    return true;
+                }).ToList(); // force evaluation
             }
             try
             {
@@ -142,7 +131,12 @@ namespace Momir_IRL
                 lock (_syncRoot)
                 {
                     _printing = false;
-                    _buttons.ForEach(b => b.Enabled = true);
+                    _buttons.Zip(_manaImages, (b, i) =>
+                    {
+                        b.Enabled = true;
+                        b.SetImageBitmap(i.enabled);
+                        return false;
+                    }).ToList(); // force evaluation
                 }
             }
         }
@@ -204,6 +198,36 @@ namespace Momir_IRL
             catch (Exception e)
             {
                 Log.Error("Printer", "Could not connect to Bluetooth " + e.ToString());
+            }
+        }
+
+        private async Task LoadManaButtons(IEnumerable<int> cmcs)
+        {
+            var buttonCarousel = FindViewById<LinearLayout>(Resource.Id.button_carousel);
+            ImageButton lastButton = null;
+            foreach (var cmc in cmcs)
+            {
+                var layoutParams = new RelativeLayout.LayoutParams(DpToPixels(this, 75), DpToPixels(this, 75));
+                if (lastButton != null)
+                {
+                    layoutParams.AddRule(LayoutRules.AlignLeft, lastButton.Id);
+                }
+                var button = new ImageButton(this)
+                {
+                    Id = View.GenerateViewId(),
+                    Background = null,
+                    LayoutParameters = layoutParams,
+                    ContentDescription = cmc.ToString(),
+                };
+                button.SetScaleType(ImageView.ScaleType.CenterCrop);
+                _manaImages.Add((await BitmapFactory.DecodeStreamAsync(Assets.Open($"{Folder}/mana/{cmc}.png")),
+                    await BitmapFactory.DecodeStreamAsync(Assets.Open($"{Folder}/mana_disabled/{cmc}.png"))));
+                button.SetImageBitmap(_manaImages.Last().enabled);
+                button.Click += ButtonOnClick;
+
+                buttonCarousel.AddView(button);
+                _buttons.Add(button);
+                lastButton = button;
             }
         }
 
@@ -269,5 +293,18 @@ namespace Momir_IRL
             }
             return compressedBytes.ToArray();
         }
-	}
+
+        /// <summary>
+        /// Device Independent Pixels to Actual Pixles conversion
+        /// </summary>
+        /// <param name="context"></param>
+        /// <param name="valueInDp"></param>
+        /// <returns></returns>
+        public static int DpToPixels(Context context, float valueInDp)
+        {
+            // Adapted from https://theconfuzedsourcecode.wordpress.com/2017/02/12/dptopixels-and-pixelstodp-for-xamarin-android/
+            DisplayMetrics metrics = context.Resources.DisplayMetrics;
+            return (int)Math.Round(TypedValue.ApplyDimension(ComplexUnitType.Dip, valueInDp, metrics), 0);
+        }
+    }
 }
